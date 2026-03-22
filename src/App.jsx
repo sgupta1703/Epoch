@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider } from './context/Authcontext';
+import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import LoadingSpinner from './components/LoadingSpinner';
 import EpochArchivist from './components/EpochArchivist';
@@ -12,18 +12,18 @@ import Register from './pages/auth/Register';
 import Landing from './Landing';
 
 // Teacher pages
-import TeacherDashboard from './pages/teacher/Teacherdashboard';
-import ClassroomView from './pages/teacher/Classroomview';
-import UnitEditor from './pages/teacher/Uniteditor';
+import TeacherDashboard from './pages/teacher/TeacherDashboard';
+import ClassroomView from './pages/teacher/ClassroomView';
+import UnitEditor from './pages/teacher/UnitEditor';
 
 // Student pages
-import StudentDashboard from './pages/student/Studentdashboard';
-import StudentClassroom from './pages/student/Studentclassroom';
-import StudentUnit from './pages/student/Studentunit';
-import NotesView from './pages/student/Notesview';
-import PersonaChat from './pages/student/Personachat';
-import QuizView from './pages/student/Quizview';
-import AssignmentView from './pages/student/Assignmentview';
+import StudentDashboard from './pages/student/StudentDashboard';
+import StudentClassroom from './pages/student/StudentClassroom';
+import StudentUnit from './pages/student/StudentUnit';
+import NotesView from './pages/student/NotesView';
+import PersonaChat from './pages/student/PersonaChat';
+import QuizView from './pages/student/QuizView';
+import AssignmentView from './pages/student/AssignmentView';
 
 
 function RequireAuth() {
