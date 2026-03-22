@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/Authcontext';
 import { useAuth } from './hooks/useAuth';
-import LoadingSpinner from './components/LoadingSpinner';
+import LoadingSpinner from './components/Loadingspinner';
 import EpochArchivist from './components/EpochArchivist';
 
 // Auth pages
@@ -23,7 +23,7 @@ import StudentUnit from './pages/student/Studentunit';
 import NotesView from './pages/student/Notesview';
 import PersonaChat from './pages/student/Personachat';
 import QuizView from './pages/student/Quizview';
-import AssignmentView from './pages/student/AssignmentView';
+import AssignmentView from './pages/student/Assignmentview';
 
 
 function RequireAuth() {
