@@ -16,30 +16,57 @@ const assistantRoutes   = require('./routes/assistant');
 const app = express();
 
 // ── CORS ──────────────────────────────────────────────────────
-const allowedOrigin = process.env.CLIENT_URL || 'http://localhost:5174';
-console.log(`[startup] CORS origin: ${allowedOrigin}`);
-app.use(cors({ origin: allowedOrigin, credentials: true }));
+const allowedOrigins = process.env.CLIENT_URLS
+  ? process.env.CLIENT_URLS.split(',').map(o => o.trim())
+  : [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'https://epoch-rosy.vercel.app'
+    ];
+
+console.log('[startup] Allowed CORS origins:', allowedOrigins);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow non-browser requests (Postman, curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`[CORS] Blocked origin: ${origin}`);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  credentials: true
+}));
+
+// Handle preflight explicitly
+app.options('*', cors());
+
 app.use(express.json());
 
 // ── Request logger ────────────────────────────────────────────
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`,
-    Object.keys(req.body).length ? req.body : '');
+  console.log(
+    `[${new Date().toISOString()}] ${req.method} ${req.path}`,
+    Object.keys(req.body || {}).length ? req.body : ''
+  );
   next();
 });
 
 // ── Routes ────────────────────────────────────────────────────
 app.use('/api/auth',       authRoutes);
 app.use('/api/classrooms', classroomRoutes);
-app.use('/api/classrooms', unitRoutes);       // GET/POST /api/classrooms/:id/units
-app.use('/api/classrooms', timelineRoutes);   // GET/POST/PUT /api/classrooms/:id/timeline
-app.use('/api/units',      unitRoutes);       // GET/PATCH/DELETE /api/units/:id
+app.use('/api/classrooms', unitRoutes);
+app.use('/api/classrooms', timelineRoutes);
+app.use('/api/units',      unitRoutes);
 app.use('/api/units',      notesRoutes);
-app.use('/api/units',      personaRoutes);    // GET/POST /api/units/:unitId/personas
-app.use('/api/personas',   personaRoutes);    // PATCH/DELETE/POST /api/personas/:id/...
+app.use('/api/units',      personaRoutes);
+app.use('/api/personas',   personaRoutes);
 app.use('/api/units',      quizRoutes);
 app.use('/api/units',      fileRoutes);
-app.use('/api/units',      assignmentRoutes); // all /api/units/:unitId/assignment routes
+app.use('/api/units',      assignmentRoutes);
 app.use('/api/assistant',  assistantRoutes);
 
 app.get('/api/health', (req, res) => {
