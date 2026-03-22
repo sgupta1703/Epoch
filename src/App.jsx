@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/Authcontext';
 import { useAuth } from './hooks/useAuth';
-import LoadingSpinner from './components/Loadingspinner';
+import LoadingSpinner from './components/LoadingSpinner';
 import EpochArchivist from './components/EpochArchivist';
 
 // Auth pages
