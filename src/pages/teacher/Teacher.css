@@ -1,0 +1,726 @@
+/* ── Classroom cards (TeacherDashboard) ── */
+.classroom-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 22px 24px 18px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.classroom-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+  background: linear-gradient(90deg, var(--rust), var(--gold));
+}
+
+.classroom-card:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.09);
+  border-color: #c8c0b4;
+}
+
+.classroom-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.classroom-card-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.25;
+  flex: 1;
+}
+
+.classroom-card-code {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  background: var(--cream);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.classroom-card-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.classroom-card-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+/* ── ClassroomView header info ── */
+.classroom-info-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.classroom-info-item {
+  background: var(--bg, #fff);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.classroom-info-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.classroom-info-code,
+.classroom-info-value {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.classroom-info-code {
+  letter-spacing: 0.08em;
+}
+
+.copy-code-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.copy-code-btn:hover {
+  background: var(--cream);
+}
+
+/* ── UnitEditor tabs ── */
+.unit-editor-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── NotesEditor ── */
+.notes-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.notes-editor-textarea {
+  width: 100%;
+  min-height: 480px;
+  padding: 20px;
+  font-size: 14px;
+  font-family: var(--font-body);
+  line-height: 1.8;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.notes-editor-textarea:focus {
+  border-color: var(--rust);
+  box-shadow: 0 0 0 3px rgba(184,76,43,0.1);
+}
+
+.notes-generated-at {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* ── PersonasEditor ── */
+.persona-list { display: flex; flex-direction: column; gap: 12px; }
+
+.persona-item {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.persona-item-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.persona-item-body { flex: 1; min-width: 0; }
+
+.persona-item-name {
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+
+.persona-item-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.persona-item-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.persona-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── QuizEditor ── */
+.quiz-question-list { display: flex; flex-direction: column; gap: 14px; }
+
+.quiz-question-item {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px 20px;
+}
+
+.quiz-question-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.quiz-question-num {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.quiz-question-type {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quiz-question-type--mc {
+  background: rgba(201,168,76,0.15);
+  color: #7a6028;
+}
+
+.quiz-question-type--sa {
+  background: rgba(80,130,180,0.12);
+  color: #2a5a8a;
+}
+
+.quiz-question-text {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.5;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.quiz-question-text--markdown p {
+  margin: 0;
+}
+
+.quiz-question-text--markdown p + p,
+.quiz-question-text--markdown ul + p,
+.quiz-question-text--markdown ol + p,
+.quiz-question-text--markdown p + ul,
+.quiz-question-text--markdown p + ol {
+  margin-top: 10px;
+}
+
+.quiz-question-text--markdown ul,
+.quiz-question-text--markdown ol {
+  margin: 10px 0 0 20px;
+}
+
+.quiz-question-text--markdown li + li {
+  margin-top: 4px;
+}
+
+.quiz-question-text--markdown strong {
+  font-weight: 600;
+}
+
+.quiz-question-text--markdown em {
+  font-style: italic;
+}
+
+.quiz-question-text--markdown code {
+  font-size: 0.92em;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.quiz-question-answer {
+  font-size: 12px;
+  color: #2a7a2a;
+  background: rgba(39,174,96,0.07);
+  border: 1px solid rgba(39,174,96,0.2);
+  padding: 5px 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.quiz-question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.quiz-option {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 3px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quiz-option--correct { color: #2a7a2a; font-weight: 500; }
+.quiz-option-bullet { font-size: 10px; }
+
+
+
+/* ── Add to both Teacher.css and Student.css ── */
+
+.file-drop-zone {
+  border: 1.5px dashed var(--border);
+  border-radius: 6px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 14px;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone--active {
+  border-color: var(--rust);
+  background: rgba(184, 76, 43, 0.03);
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+
+.file-item:hover {
+  border-color: #c8c0b4;
+}
+
+.file-item-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.file-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-item-size {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Essay question type badge ── */
+.quiz-question-type--essay {
+  background: rgba(139, 90, 180, 0.12);
+  color: #5a2d82;
+}
+
+/* ── Essay grading prompt display (in question list) ── */
+.quiz-question-essay-prompt {
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(139, 90, 180, 0.06);
+  border: 1px solid rgba(139, 90, 180, 0.2);
+  border-left: 3px solid rgba(139, 90, 180, 0.4);
+  padding: 6px 10px;
+  border-radius: 0 3px 3px 0;
+  line-height: 1.5;
+}
+
+.quiz-question-essay-prompt-label {
+  font-weight: 600;
+  color: #5a2d82;
+  margin-right: 6px;
+}
+
+/* ── Essay breakdown grid (in student results) ── */
+.essay-breakdown-cell {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  text-align: center;
+}
+
+.essay-breakdown-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.essay-breakdown-score {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.essay-breakdown-denom {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ── Assignment section headings ── */
+.assignment-section-heading {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.assignment-section-count {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--rust);
+  color: #fff;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+/* ── Source cards ── */
+.assignment-source-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.assignment-source-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--cream);
+}
+
+.assignment-source-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-source-preview {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+  padding: 14px 16px;
+  max-height: 100px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+/* ── Source type / format badges ── */
+.assignment-source-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.assignment-source-badge--primary {
+  background: rgba(184,76,43,0.1);
+  color: var(--rust);
+  border: 1px solid rgba(184,76,43,0.2);
+}
+
+.assignment-source-badge--secondary {
+  background: rgba(80,130,180,0.1);
+  color: #2a5a8a;
+  border: 1px solid rgba(80,130,180,0.2);
+}
+
+.assignment-source-badge--ai {
+  background: rgba(139,90,180,0.1);
+  color: #5a2d82;
+  border: 1px solid rgba(139,90,180,0.2);
+}
+
+/* ── Performance modals ── */
+
+.perf-overall-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.perf-unit-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.perf-unit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.perf-unit-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.perf-submission-block {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.perf-submission-block:last-child { border-bottom: none; }
+
+.perf-submission-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rust);
+  margin-bottom: 4px;
+}
+
+.perf-essay-breakdown {
+  background: #fafaf8;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.perf-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.perf-breakdown-cell {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px;
+  text-align: center;
+}
+
+.perf-breakdown-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.perf-breakdown-score {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.perf-feedback-pill {
+  font-size: 12px;
+  color: var(--ink);
+  padding: 7px 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 0 4px 4px 0;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+/* ── Class performance table ── */
+
+.perf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.perf-table-th {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--cream);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.perf-table-th--student {
+  text-align: left;
+  min-width: 140px;
+}
+
+.perf-table-unit-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.perf-table-unit-sub {
+  font-size: 9px;
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+.perf-table-row:hover td { background: #fafaf8; }
+
+.perf-table-td {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  vertical-align: middle;
+}
+
+.perf-table-td--student { min-width: 140px; }
+.perf-table-td--center  { text-align: center; }
+
+.perf-class-avg {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-top: none;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  border-radius: 0 0 4px 4px;
+}
+

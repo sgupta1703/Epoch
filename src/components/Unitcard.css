@@ -1,0 +1,188 @@
+.unit-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 22px 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.unit-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--rust);
+  transition: width 0.2s;
+}
+
+.unit-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border-color: #c8c0b4;
+}
+
+.unit-card--hidden {
+  opacity: 0.65;
+}
+
+.unit-card--hidden::before {
+  background: var(--muted);
+}
+
+/* Top bar */
+.unit-card-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.unit-card-vis {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 2px;
+}
+
+.unit-card-vis--on {
+  background: rgba(80, 150, 80, 0.12);
+  color: #3a7a3a;
+}
+
+.unit-card-vis--off {
+  background: rgba(120, 110, 90, 0.1);
+  color: var(--muted);
+}
+
+.unit-card-due {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.unit-card-due--late {
+  color: var(--rust);
+}
+
+/* Title */
+.unit-card-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.25;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.unit-card-title:hover {
+  color: var(--rust);
+}
+
+/* Context */
+.unit-card-context {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Student progress */
+.unit-card-progress {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--cream);
+}
+
+.unit-card-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.unit-card-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.unit-card-progress-dot--done {
+  background: #3a7a3a;
+  border-color: #3a7a3a;
+}
+
+.unit-card-progress-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Footer */
+.unit-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  gap: 8px;
+}
+
+.unit-card-teacher-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Buttons */
+.unit-card-btn {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.unit-card-btn--primary {
+  background: var(--ink);
+  color: var(--parchment);
+}
+
+.unit-card-btn--primary:hover {
+  background: #2a2622;
+}
+
+.unit-card-btn--ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.unit-card-btn--ghost:hover {
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.unit-card-btn--danger {
+  background: transparent;
+  color: #c0392b;
+  border: 1px solid rgba(192, 57, 43, 0.25);
+}
+
+.unit-card-btn--danger:hover {
+  background: rgba(192, 57, 43, 0.08);
+  border-color: #c0392b;
+}
