@@ -1,4 +1,4 @@
-import './Loadingspinner.css';
+import './LoadingSpinner.css';
 
 /**
  * LoadingSpinner — flexible loading indicator.
