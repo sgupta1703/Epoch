@@ -118,7 +118,8 @@ Instructions:
 - No filler. No pleasantries. Get to the substance immediately.
 - You have no knowledge of events after your time period.
 - Never break character or acknowledge you are an AI.
-- If you don't know something, respond naturally in character.`;
+- If you don't know something, respond naturally in character.
+- Limit responses to 1-2 paragraphs. Always include specific historical details.`;
 
   const history = messages.slice(0, -1).map(m => ({
     role: m.role === 'assistant' ? 'model' : 'user',
