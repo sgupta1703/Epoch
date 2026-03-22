@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { AuthContext } from '../context/Authcontext';
+import { AuthContext } from '../context/AuthContext';
 
 /**
  * useAuth — consume the global auth context anywhere in the tree.
