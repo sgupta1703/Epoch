@@ -4,6 +4,7 @@ const supabase = require('../services/supabaseClient');
 const { generateTimeline } = require('../services/claude');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
+const { getUserSettings, buildTeacherAiInstruction } = require('../services/userSettings');
 
 // ── Access helpers ────────────────────────────────────────────
 
@@ -76,7 +77,8 @@ router.post('/:classroomId/timeline/generate', authenticate, requireRole('teache
       return res.status(400).json({ error: 'Add context to at least one unit before generating a timeline.' });
     }
 
-    const generated = await generateTimeline(classroom.name, units);
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const generated = await generateTimeline(classroom.name, units, buildTeacherAiInstruction(settings));
 
     // Upsert timeline row
     const { data: timeline, error: tErr } = await supabase

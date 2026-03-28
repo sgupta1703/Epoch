@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabaseClient');
 const { chatWithPersona } = require('../services/claude');
+const { getUserSettings, buildStudentAiInstruction } = require('../services/userSettings');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
 
@@ -126,7 +127,13 @@ router.post('/:id/chat', authenticate, requireRole('student'), async (req, res, 
       .eq('persona_id', req.params.id).eq('student_id', req.user.id).single();
     const existingMessages = conversation?.messages || [];
     const updatedMessages = [...existingMessages, { role: 'user', content: message }];
-    const reply = await chatWithPersona(persona, persona.units.context, updatedMessages);
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const reply = await chatWithPersona(
+      persona,
+      persona.units.context,
+      updatedMessages,
+      buildStudentAiInstruction(settings),
+    );
     const finalMessages = [...updatedMessages, { role: 'assistant', content: reply }];
     const newTurnCount = (conversation?.turn_count || 0) + 1;
     const completed = newTurnCount >= persona.min_turns;

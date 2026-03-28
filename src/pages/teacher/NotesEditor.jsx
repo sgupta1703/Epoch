@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import AppDatePicker from '../../components/AppDatePicker';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { getNotes, generateNotes, saveNotes } from '../../api/notes';
 import { getFiles, uploadFile, deleteFile } from '../../api/files';
@@ -148,12 +149,7 @@ export default function NotesEditor({ unit }) {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div className="field" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ margin: 0, whiteSpace: 'nowrap' }}>Due Date</label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-              style={{ width: 'auto', marginBottom: 0 }}
-            />
+            <AppDatePicker value={dueDate} onChange={val => setDueDate(val)} />
           </div>
           <button
             className="btn btn-dark"

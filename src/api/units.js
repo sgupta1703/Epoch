@@ -4,7 +4,7 @@ import api from './axiosInstance';
  * Get all units for a classroom.
  * Teacher: all units. Student: visible units only.
  * @param {string} classroomId
- * @returns {{ units: object[] }}
+ * @returns {Promise<{ units: object[] }>}
  */
 export async function getUnits(classroomId) {
   const res = await api.get(`/api/classrooms/${classroomId}/units`);
@@ -14,7 +14,7 @@ export async function getUnits(classroomId) {
 /**
  * Get a single unit by ID.
  * @param {string} unitId
- * @returns {{ unit: object }}
+ * @returns {Promise<{ unit: object }>}
  */
 export async function getUnit(unitId) {
   const res = await api.get(`/api/units/${unitId}`);
@@ -25,7 +25,7 @@ export async function getUnit(unitId) {
  * Create a new unit inside a classroom. (Teacher only)
  * @param {string} classroomId
  * @param {{ title: string, context?: string, due_date?: string }} data
- * @returns {{ unit: object }}
+ * @returns {Promise<{ unit: object }>}
  */
 export async function createUnit(classroomId, { title, context, due_date }) {
   const res = await api.post(`/api/classrooms/${classroomId}/units`, {
@@ -41,7 +41,7 @@ export async function createUnit(classroomId, { title, context, due_date }) {
  * Only include the fields you want to change.
  * @param {string} unitId
  * @param {{ title?: string, context?: string, is_visible?: boolean, due_date?: string }} updates
- * @returns {{ unit: object }}
+ * @returns {Promise<{ unit: object }>}
  */
 export async function updateUnit(unitId, updates) {
   const res = await api.patch(`/api/units/${unitId}`, updates);
@@ -52,7 +52,7 @@ export async function updateUnit(unitId, updates) {
  * Toggle a unit's visibility. (Teacher only — convenience wrapper)
  * @param {string} unitId
  * @param {boolean} isVisible
- * @returns {{ unit: object }}
+ * @returns {Promise<{ unit: object }>}
  */
 export async function setUnitVisibility(unitId, isVisible) {
   return updateUnit(unitId, { is_visible: isVisible });
@@ -61,7 +61,7 @@ export async function setUnitVisibility(unitId, isVisible) {
 /**
  * Delete a unit. (Teacher only)
  * @param {string} unitId
- * @returns {{ message: string }}
+ * @returns {Promise<{ message: string }>}
  */
 export async function deleteUnit(unitId) {
   const res = await api.delete(`/api/units/${unitId}`);

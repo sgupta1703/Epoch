@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { getQuiz, submitQuiz, getQuizResults } from '../../api/quiz';
+import EssayGuide from '../../components/EssayGuide';
+import { getQuizzes, getQuizById, submitQuiz, getQuizResults } from '../../api/quiz';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import '../../styles/pages.css';
 import './Student.css';
@@ -10,14 +11,6 @@ function scoreColor(score) {
   if (score >= 70) return '#2a7a2a';
   if (score >= 40) return '#b8860b';
   return '#c0392b';
-}
-
-function normalizeMcAnswer(answer) {
-  return String(answer || '').trim().replace(/^[A-Z]\)\s*/i, '').replace(/^[A-Z][.: -]+\s*/i, '').replace(/\s+/g, ' ').toLowerCase();
-}
-
-function isMatchingMcAnswer(studentAnswer, correctAnswer) {
-  return normalizeMcAnswer(studentAnswer) !== '' && normalizeMcAnswer(studentAnswer) === normalizeMcAnswer(correctAnswer);
 }
 
 const TAG_STYLES = {
@@ -70,13 +63,12 @@ function typeLabel(type) {
   return 'Short Answer';
 }
 
-export default function QuizView({ user }) {
-  const { unitId } = useParams();
-  const [quiz, setQuiz] = useState(null);
-  const [answers, setAnswers] = useState({});
-  const [submission, setSubmission] = useState(null);
+// ─── QUIZ LIST ────────────────────────────────────────────────────────────────
+
+function QuizList({ unitId, user, onSelectQuiz }) {
+  const [quizzes, setQuizzes] = useState([]);
+  const [submissionMap, setSubmissionMap] = useState({});
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => { fetchAll(); }, [unitId]);
@@ -84,11 +76,112 @@ export default function QuizView({ user }) {
   async function fetchAll() {
     setLoading(true); setError('');
     try {
-      const { quiz } = await getQuiz(unitId);
+      const { quizzes } = await getQuizzes(unitId);
+      setQuizzes(quizzes || []);
+      const subs = {};
+      await Promise.all((quizzes || []).map(async quiz => {
+        try {
+          const { submission } = await getQuizResults(unitId, quiz.id, user.id);
+          if (submission) subs[quiz.id] = submission;
+        } catch { /* no submission */ }
+      }));
+      setSubmissionMap(subs);
+    } catch { setError('Failed to load quizzes.'); }
+    finally { setLoading(false); }
+  }
+
+  if (loading) return <LoadingSpinner label="Loading quizzes…" />;
+  if (error) return <div className="alert alert-error">{error}</div>;
+
+  if (quizzes.length === 0) {
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">📝</div>
+        <h3>No quizzes yet</h3>
+        <p>Your teacher hasn't created any quizzes for this unit yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 6, color: 'var(--ink)' }}>Quizzes</h2>
+      <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
+        {quizzes.length} quiz{quizzes.length !== 1 ? 'zes' : ''} available
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {quizzes.map(quiz => {
+          const sub = submissionMap[quiz.id];
+          const submitted = !!sub;
+          const hasScore = sub?.score !== null && sub?.score !== undefined;
+
+          return (
+            <button key={quiz.id} onClick={() => onSelectQuiz(quiz.id)}
+              style={{
+                width: '100%', textAlign: 'left', border: '1px solid var(--border)',
+                borderRadius: 10, padding: '16px 18px', background: '#fff',
+                cursor: 'pointer', fontFamily: 'var(--font-body)',
+                display: 'flex', alignItems: 'center', gap: 16,
+                transition: 'box-shadow 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(46,34,25,0.09)'; e.currentTarget.style.borderColor = 'var(--rust)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, color: 'var(--ink)', marginBottom: 6 }}>
+                  {quiz.name}
+                </div>
+                <div style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--muted)', flexWrap: 'wrap' }}>
+                  <span>{quiz.question_count} question{quiz.question_count !== 1 ? 's' : ''}</span>
+                  {quiz.due_date && (
+                    <span>Due {new Date(quiz.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ flexShrink: 0 }}>
+                {submitted ? (
+                  hasScore ? (
+                    <span style={{ fontSize: 15, fontWeight: 700, color: scoreColor(sub.score), background: sub.score >= 70 ? '#eaf6ea' : sub.score >= 40 ? '#fdf8ec' : '#fdecea', padding: '6px 14px', borderRadius: 999 }}>
+                      {sub.score}%
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#2a7a2a', background: '#eaf6ea', padding: '6px 12px', borderRadius: 999 }}>Submitted</span>
+                  )
+                ) : (
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', background: 'var(--cream)', padding: '6px 12px', borderRadius: 999 }}>Not Started</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── QUIZ TAKER ───────────────────────────────────────────────────────────────
+
+function QuizTaker({ unitId, quizId, user, onBack }) {
+  const [quiz, setQuiz] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [submission, setSubmission] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideQuestion, setGuideQuestion] = useState('');
+  const [guideQuestionId, setGuideQuestionId] = useState(null);
+
+  useEffect(() => { fetchAll(); }, [quizId]);
+
+  async function fetchAll() {
+    setLoading(true); setError('');
+    try {
+      const { quiz } = await getQuizById(unitId, quizId);
       setQuiz(quiz);
       if (quiz) {
         try {
-          const { submission } = await getQuizResults(unitId, user.id);
+          const { submission } = await getQuizResults(unitId, quizId, user.id);
           if (submission) setSubmission(submission);
         } catch { /* no submission yet */ }
       }
@@ -100,6 +193,12 @@ export default function QuizView({ user }) {
     setAnswers(a => ({ ...a, [questionId]: answer }));
   }
 
+  function openGuide(q) {
+    setGuideQuestion(q.question_text);
+    setGuideQuestionId(q.id);
+    setGuideOpen(true);
+  }
+
   async function handleSubmit() {
     if (!quiz?.questions) return;
     const unanswered = quiz.questions.filter(q => !answers[q.id]);
@@ -107,7 +206,7 @@ export default function QuizView({ user }) {
     setError(''); setSubmitting(true);
     try {
       const payload = quiz.questions.map(q => ({ question_id: q.id, answer: answers[q.id] }));
-      const { submission } = await submitQuiz(unitId, { answers: payload });
+      const { submission } = await submitQuiz(unitId, quizId, { answers: payload });
       setSubmission(submission);
     } catch (err) { setError(err.response?.data?.error || 'Failed to submit quiz.'); }
     finally { setSubmitting(false); }
@@ -115,22 +214,22 @@ export default function QuizView({ user }) {
 
   const answeredCount = Object.keys(answers).length;
   const totalCount = quiz?.questions?.length || 0;
+  const guideEnabled = quiz?.essay_guide_enabled !== false;
 
   if (loading) return <LoadingSpinner label="Loading quiz…" />;
 
   return (
     <div>
+      <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, fontSize: 13, fontFamily: 'var(--font-body)', marginBottom: 18 }}>
+        ← All Quizzes
+      </button>
+
       {error && <div className="alert alert-error">{error}</div>}
 
       {!quiz ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">📝</div>
-          <h3>No quiz yet</h3>
-          <p>Your teacher hasn't created a quiz for this unit yet.</p>
-        </div>
-
+        <div className="empty-state"><div className="empty-state-icon">📝</div><h3>Quiz not found</h3></div>
       ) : submission ? (
-        /* ══════════ RESULTS VIEW ══════════ */
+        /* ── RESULTS VIEW ── */
         <>
           <div className="quiz-result-score">
             {submission.score !== null ? (
@@ -146,7 +245,7 @@ export default function QuizView({ user }) {
             )}
           </div>
 
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 16 }}>Your Answers</h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 16 }}>{quiz.name} — Your Answers</h2>
 
           {quiz.questions.map((q, i) => {
             const studentAnswer = submission.answers?.find(a => a.question_id === q.id) ?? submission.answers?.[i];
@@ -163,39 +262,16 @@ export default function QuizView({ user }) {
                   <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>
                     Question {i + 1} · {typeLabel(q.type)}
                   </span>
-                  {isMC && mcResult && (
-                    <span style={{ fontSize: 12, fontWeight: 600, color: isCorrect ? '#2a7a2a' : '#c0392b', background: isCorrect ? '#eaf6ea' : '#fdecea', padding: '2px 8px', borderRadius: 10 }}>
-                      {isCorrect ? '✓ Correct' : '✗ Incorrect'}
-                    </span>
-                  )}
-                  {!isMC && !isEssay && saResult?.score !== null && saResult?.score !== undefined && (
-                    <span style={{ fontSize: 13, fontWeight: 600, color: scoreColor(saResult.score) }}>{saResult.score}%</span>
-                  )}
-                  {isEssay && essayResult?.score !== null && essayResult?.score !== undefined && (
-                    <span style={{ fontSize: 13, fontWeight: 600, color: scoreColor(essayResult.score) }}>{essayResult.score}%</span>
-                  )}
+                  {isMC && mcResult && <span style={{ fontSize: 12, fontWeight: 600, color: isCorrect ? '#2a7a2a' : '#c0392b', background: isCorrect ? '#eaf6ea' : '#fdecea', padding: '2px 8px', borderRadius: 10 }}>{isCorrect ? '✓ Correct' : '✗ Incorrect'}</span>}
+                  {!isMC && !isEssay && saResult?.score !== null && saResult?.score !== undefined && <span style={{ fontSize: 13, fontWeight: 600, color: scoreColor(saResult.score) }}>{saResult.score}%</span>}
+                  {isEssay && essayResult?.score !== null && essayResult?.score !== undefined && <span style={{ fontSize: 13, fontWeight: 600, color: scoreColor(essayResult.score) }}>{essayResult.score}%</span>}
                 </div>
-
-                <div className="quiz-student-question-text quiz-student-question-text--markdown"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
-
+                <div className="quiz-student-question-text quiz-student-question-text--markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
                 <div style={{ fontSize: 13, color: 'var(--muted)', background: 'var(--cream)', padding: '8px 12px', borderRadius: 4, marginBottom: 8 }}>
-                  {isEssay
-                    ? <><strong style={{ color: 'var(--ink)' }}>Your essay:</strong><br />{studentAnswer?.answer || '—'}</>
-                    : <>Your answer: <strong style={{ color: 'var(--ink)' }}>{studentAnswer?.answer || '—'}</strong></>
-                  }
+                  {isEssay ? <><strong style={{ color: 'var(--ink)' }}>Your essay:</strong><br />{studentAnswer?.answer || '—'}</> : <>Your answer: <strong style={{ color: 'var(--ink)' }}>{studentAnswer?.answer || '—'}</strong></>}
                 </div>
-
-                {isMC && !isCorrect && mcResult?.correct_answer && (
-                  <div style={{ fontSize: 13, color: '#2a7a2a', background: '#eaf6ea', padding: '8px 12px', borderRadius: 4 }}>
-                    Correct answer: <strong>{mcResult.correct_answer}</strong>
-                  </div>
-                )}
-                {!isMC && !isEssay && saResult?.feedback && (
-                  <div style={{ fontSize: 13, color: 'var(--ink)', background: '#fff', border: '1px solid var(--border)', borderLeft: `3px solid ${scoreColor(saResult.score ?? 0)}`, padding: '8px 12px', borderRadius: '0 4px 4px 0', lineHeight: 1.6 }}>
-                    💬 {saResult.feedback}
-                  </div>
-                )}
+                {isMC && !isCorrect && mcResult?.correct_answer && <div style={{ fontSize: 13, color: '#2a7a2a', background: '#eaf6ea', padding: '8px 12px', borderRadius: 4 }}>Correct answer: <strong>{mcResult.correct_answer}</strong></div>}
+                {!isMC && !isEssay && saResult?.feedback && <div style={{ fontSize: 13, color: 'var(--ink)', background: '#fff', border: '1px solid var(--border)', borderLeft: `3px solid ${scoreColor(saResult.score ?? 0)}`, padding: '8px 12px', borderRadius: '0 4px 4px 0', lineHeight: 1.6 }}>💬 {saResult.feedback}</div>}
                 {isEssay && essayResult && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {essayResult.breakdown && (
@@ -208,11 +284,7 @@ export default function QuizView({ user }) {
                         ))}
                       </div>
                     )}
-                    {essayResult.feedback && (
-                      <div style={{ fontSize: 13, color: 'var(--ink)', background: '#fff', border: '1px solid var(--border)', borderLeft: `3px solid ${scoreColor(essayResult.score ?? 0)}`, padding: '10px 14px', borderRadius: '0 4px 4px 0', lineHeight: 1.7 }}>
-                        💬 {essayResult.feedback}
-                      </div>
-                    )}
+                    {essayResult.feedback && <div style={{ fontSize: 13, color: 'var(--ink)', background: '#fff', border: '1px solid var(--border)', borderLeft: `3px solid ${scoreColor(essayResult.score ?? 0)}`, padding: '10px 14px', borderRadius: '0 4px 4px 0', lineHeight: 1.7 }}>💬 {essayResult.feedback}</div>}
                     {essayResult.tagged_response && (
                       <div>
                         <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Your essay — annotated</p>
@@ -225,10 +297,10 @@ export default function QuizView({ user }) {
             );
           })}
         </>
-
       ) : (
-        /* ══════════ QUIZ TAKING VIEW ══════════ */
+        /* ── QUIZ TAKING VIEW ── */
         <>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 16, color: 'var(--ink)' }}>{quiz.name}</h2>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <p style={{ fontSize: 13, color: 'var(--muted)' }}>
               {totalCount} question{totalCount !== 1 ? 's' : ''} · {answeredCount}/{totalCount} answered
@@ -243,15 +315,11 @@ export default function QuizView({ user }) {
               <div style={{ marginBottom: 8, fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>
                 Question {i + 1} · {typeLabel(q.type)}
               </div>
-              <div className="quiz-student-question-text quiz-student-question-text--markdown"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
-
+              <div className="quiz-student-question-text quiz-student-question-text--markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
               {q.type === 'multiple_choice' && (
                 <div className="quiz-options-list">
                   {q.options?.map((opt, oi) => (
-                    <button key={oi}
-                      className={`quiz-option-btn ${answers[q.id] === opt ? 'quiz-option-btn--selected' : ''}`}
-                      onClick={() => handleAnswer(q.id, opt)}>
+                    <button key={oi} className={`quiz-option-btn ${answers[q.id] === opt ? 'quiz-option-btn--selected' : ''}`} onClick={() => handleAnswer(q.id, opt)}>
                       <span className="quiz-option-bullet">{answers[q.id] === opt ? '✓' : String.fromCharCode(65 + oi)}</span>
                       {opt}
                     </button>
@@ -259,21 +327,22 @@ export default function QuizView({ user }) {
                 </div>
               )}
               {q.type === 'short_answer' && (
-                <textarea className="quiz-short-answer" value={answers[q.id] || ''}
-                  onChange={e => handleAnswer(q.id, e.target.value)}
-                  placeholder="Type your answer here…" rows={3} />
+                <textarea className="quiz-short-answer" value={answers[q.id] || ''} onChange={e => handleAnswer(q.id, e.target.value)} placeholder="Type your answer here…" rows={3} />
               )}
               {q.type === 'essay' && (
                 <>
+                  {guideEnabled && (
+                    <button onClick={() => openGuide(q)} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, padding: '6px 12px', background: '#fef3cd', border: '1px solid #f0c040', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#7a5c00', fontFamily: 'var(--font-body)' }}>
+                      ✍️ Open Essay Guide <span style={{ fontSize: 11, fontWeight: 400 }}>— plan your outline & get coaching</span>
+                    </button>
+                  )}
                   <div className="essay-writing-hints">
                     <span className="essay-hint essay-hint--thesis">Thesis</span>
                     <span className="essay-hint essay-hint--evidence">Evidence</span>
                     <span className="essay-hint essay-hint--analysis">Analysis</span>
                     <span className="essay-hint essay-hint--counterclaim">Counterclaim</span>
                   </div>
-                  <textarea className="quiz-essay-answer" value={answers[q.id] || ''}
-                    onChange={e => handleAnswer(q.id, e.target.value)}
-                    placeholder="Write your essay response here…" rows={12} />
+                  <textarea className="quiz-essay-answer" value={answers[q.id] || ''} onChange={e => handleAnswer(q.id, e.target.value)} placeholder="Write your essay response here…" rows={12} />
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, textAlign: 'right' }}>
                     {(answers[q.id] || '').trim().split(/\s+/).filter(Boolean).length} words
                   </div>
@@ -289,6 +358,21 @@ export default function QuizView({ user }) {
           </div>
         </>
       )}
+
+      <EssayGuide isOpen={guideOpen} onClose={() => setGuideOpen(false)} question={guideQuestion} essayDraft={answers[guideQuestionId] || ''} />
     </div>
+  );
+}
+
+// ─── ROOT ─────────────────────────────────────────────────────────────────────
+
+export default function QuizView({ user }) {
+  const { unitId } = useParams();
+  const [selectedQuizId, setSelectedQuizId] = useState(null);
+
+  return selectedQuizId ? (
+    <QuizTaker unitId={unitId} quizId={selectedQuizId} user={user} onBack={() => setSelectedQuizId(null)} />
+  ) : (
+    <QuizList unitId={unitId} user={user} onSelectQuiz={setSelectedQuizId} />
   );
 }

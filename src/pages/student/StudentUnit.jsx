@@ -15,7 +15,7 @@ import './Student.css';
 const TABS = [
   { key: 'notes',      label: 'Notes' },
   { key: 'personas',   label: 'Personas' },
-  { key: 'quiz',       label: 'Quiz' },
+  { key: 'quiz',       label: 'Quizzes' },
   { key: 'assignment', label: 'Assignment' },
 ];
 

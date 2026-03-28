@@ -4,8 +4,7 @@ const supabase = require('../services/supabaseClient');
 const { generateAssignmentContent, gradeShortAnswer, gradeEssay } = require('../services/claude');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
-
-// ── Access helpers ────────────────────────────────────────────
+const { getUserSettings, buildTeacherAiInstruction, buildStudentAiInstruction } = require('../services/userSettings');
 
 async function teacherOwnsUnit(unitId, teacherId) {
   const { data: unit } = await supabase
@@ -28,21 +27,14 @@ async function studentCanAccessUnit(unitId, studentId) {
 }
 
 function normalizeMcAnswer(answer) {
-  return String(answer || '')
-    .trim()
-    .replace(/^[A-Z]\)\s*/i, '')
-    .replace(/^[A-Z][.: -]+\s*/i, '')
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
+  return String(answer || '').trim().replace(/^[A-Z]\)\s*/i, '').replace(/^[A-Z][.: -]+\s*/i, '').replace(/\s+/g, ' ').toLowerCase();
 }
 
 function isMatchingMcAnswer(studentAnswer, correctAnswer) {
   return normalizeMcAnswer(studentAnswer) !== '' && normalizeMcAnswer(studentAnswer) === normalizeMcAnswer(correctAnswer);
 }
 
-// ── GET /api/units/:unitId/assignment ────────────────────────
-// Returns the assignment + sources + questions for a unit.
-// Students don't receive correct_answer on questions.
+// GET /api/units/:unitId/assignment
 router.get('/:unitId/assignment', authenticate, async (req, res, next) => {
   try {
     const { unitId } = req.params;
@@ -62,10 +54,8 @@ router.get('/:unitId/assignment', authenticate, async (req, res, next) => {
     if (!assignment) return res.json({ assignment: null });
 
     const [{ data: sources, error: sErr }, { data: questions, error: qErr }] = await Promise.all([
-      supabase.from('assignment_sources').select('*')
-        .eq('assignment_id', assignment.id).order('order_index', { ascending: true }),
-      supabase.from('assignment_questions').select('*')
-        .eq('assignment_id', assignment.id).order('order_index', { ascending: true }),
+      supabase.from('assignment_sources').select('*').eq('assignment_id', assignment.id).order('order_index', { ascending: true }),
+      supabase.from('assignment_questions').select('*').eq('assignment_id', assignment.id).order('order_index', { ascending: true }),
     ]);
 
     if (sErr) throw sErr;
@@ -76,13 +66,10 @@ router.get('/:unitId/assignment', authenticate, async (req, res, next) => {
       : questions;
 
     res.json({ assignment: { ...assignment, sources, questions: safeQuestions } });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
-// ── POST /api/units/:unitId/assignment/generate ──────────────
-// AI-generate sources + questions. Teacher only.
+// POST /api/units/:unitId/assignment/generate
 router.post('/:unitId/assignment/generate', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
     const { unitId } = req.params;
@@ -98,19 +85,20 @@ router.post('/:unitId/assignment/generate', authenticate, requireRole('teacher')
       return res.status(400).json({ error: 'Unit must have context set before generating an assignment.' });
     }
 
+    const settings = await getUserSettings(req.user.id, req.user.role);
     const generated = await generateAssignmentContent(
-      unit.title, unit.context, source_count, question_count
+      unit.title,
+      unit.context,
+      source_count,
+      question_count,
+      buildTeacherAiInstruction(settings),
     );
 
-    // Upsert assignment
     const { data: assignment, error: aErr } = await supabase
-      .from('assignments')
-      .upsert({ unit_id: unitId }, { onConflict: 'unit_id' })
-      .select().single();
+      .from('assignments').upsert({ unit_id: unitId }, { onConflict: 'unit_id' }).select().single();
 
     if (aErr) throw aErr;
 
-    // Replace sources and questions
     await Promise.all([
       supabase.from('assignment_sources').delete().eq('assignment_id', assignment.id),
       supabase.from('assignment_questions').delete().eq('assignment_id', assignment.id),
@@ -129,12 +117,12 @@ router.post('/:unitId/assignment/generate', authenticate, requireRole('teacher')
       ).select(),
       supabase.from('assignment_questions').insert(
         generated.questions.map((q, i) => ({
-          assignment_id: assignment.id,
-          question_text: q.question_text,
-          type:          q.type,
-          options:       q.options || null,
+          assignment_id:  assignment.id,
+          question_text:  q.question_text,
+          type:           q.type,
+          options:        q.options || null,
           correct_answer: q.correct_answer,
-          order_index:   i,
+          order_index:    i,
         }))
       ).select(),
     ]);
@@ -143,30 +131,29 @@ router.post('/:unitId/assignment/generate', authenticate, requireRole('teacher')
     if (qErr) throw qErr;
 
     res.json({ assignment: { ...assignment, sources, questions } });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
-// ── PUT /api/units/:unitId/assignment ────────────────────────
-// Save/replace sources and questions manually. Teacher only.
+// PUT /api/units/:unitId/assignment
 router.put('/:unitId/assignment', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
     const { unitId } = req.params;
-    const { sources = [], questions = [], due_date } = req.body;
+    const { sources = [], questions = [], due_date, essay_guide_enabled } = req.body;
 
     const owns = await teacherOwnsUnit(unitId, req.user.id);
     if (!owns) return res.status(403).json({ error: 'Access denied' });
 
-    // Upsert assignment row
     const { data: assignment, error: aErr } = await supabase
       .from('assignments')
-      .upsert({ unit_id: unitId, due_date: due_date || null }, { onConflict: 'unit_id' })
+      .upsert({
+        unit_id:             unitId,
+        due_date:            due_date || null,
+        essay_guide_enabled: essay_guide_enabled ?? true,
+      }, { onConflict: 'unit_id' })
       .select().single();
 
     if (aErr) throw aErr;
 
-    // Replace everything
     await Promise.all([
       supabase.from('assignment_sources').delete().eq('assignment_id', assignment.id),
       supabase.from('assignment_questions').delete().eq('assignment_id', assignment.id),
@@ -193,12 +180,12 @@ router.put('/:unitId/assignment', authenticate, requireRole('teacher'), async (r
       inserts.push(
         supabase.from('assignment_questions').insert(
           questions.map((q, i) => ({
-            assignment_id: assignment.id,
-            question_text: q.question_text,
-            type:          q.type,
-            options:       q.options || null,
+            assignment_id:  assignment.id,
+            question_text:  q.question_text,
+            type:           q.type,
+            options:        q.options || null,
             correct_answer: q.correct_answer,
-            order_index:   q.order_index ?? i,
+            order_index:    q.order_index ?? i,
           }))
         ).select()
       );
@@ -211,21 +198,16 @@ router.put('/:unitId/assignment', authenticate, requireRole('teacher'), async (r
     const savedQuestions = questions.length > 0 ? results[sources.length > 0 ? 1 : 0]?.data || [] : [];
 
     res.json({ assignment: { ...assignment, sources: savedSources, questions: savedQuestions } });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
-// ── POST /api/units/:unitId/assignment/submit ────────────────
-// Student submits answers. Auto-grades MC, SA, and essays.
+// POST /api/units/:unitId/assignment/submit
 router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), async (req, res, next) => {
   try {
     const { unitId } = req.params;
     const { answers } = req.body;
 
-    if (!Array.isArray(answers)) {
-      return res.status(400).json({ error: 'answers array is required' });
-    }
+    if (!Array.isArray(answers)) return res.status(400).json({ error: 'answers array is required' });
 
     const canAccess = await studentCanAccessUnit(unitId, req.user.id);
     if (!canAccess) return res.status(403).json({ error: 'Access denied' });
@@ -242,8 +224,9 @@ router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), 
     const { data: questions } = await supabase
       .from('assignment_questions').select('id, type, question_text, correct_answer')
       .eq('assignment_id', assignment.id);
+    const studentSettings = await getUserSettings(req.user.id, req.user.role);
+    const aiInstruction = buildStudentAiInstruction(studentSettings);
 
-    // ── Grade MC ──
     const mcQuestions = questions.filter(q => q.type === 'multiple_choice');
     let mcCorrect = 0;
     mcQuestions.forEach(q => {
@@ -253,14 +236,9 @@ router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), 
 
     const mcResults = mcQuestions.map(q => {
       const a = answers.find(a => a.question_id === q.id);
-      return {
-        question_id:    q.id,
-        correct:        isMatchingMcAnswer(a?.answer, q.correct_answer),
-        correct_answer: q.correct_answer,
-      };
+      return { question_id: q.id, correct: isMatchingMcAnswer(a?.answer, q.correct_answer), correct_answer: q.correct_answer };
     });
 
-    // ── Grade Short Answer ──
     const saQuestions = questions.filter(q => q.type === 'short_answer');
     let saFeedback = [];
 
@@ -268,22 +246,18 @@ router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), 
       saFeedback = await Promise.all(
         saQuestions.map(async (q) => {
           const studentAnswer = answers.find(a => a.question_id === q.id);
-          if (!studentAnswer?.answer?.trim()) {
-            return { question_id: q.id, score: 0, feedback: 'No answer provided.' };
-          }
+          if (!studentAnswer?.answer?.trim()) return { question_id: q.id, score: 0, feedback: 'No answer provided.' };
           try {
-            const { score, feedback } = await gradeShortAnswer(
-              q.question_text, q.correct_answer, studentAnswer.answer
-            );
+            const { score, feedback } = await gradeShortAnswer(q.question_text, q.correct_answer, studentAnswer.answer, aiInstruction);
             return { question_id: q.id, score, feedback };
-          } catch {
+          } catch (e) {
+            console.error('gradeShortAnswer failed (assignment):', e?.message || e);
             return { question_id: q.id, score: null, feedback: 'Could not be graded automatically.' };
           }
         })
       );
     }
 
-    // ── Grade Essays ──
     const essayQuestions = questions.filter(q => q.type === 'essay');
     let essayFeedback = [];
 
@@ -292,51 +266,33 @@ router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), 
         essayQuestions.map(async (q) => {
           const studentAnswer = answers.find(a => a.question_id === q.id);
           if (!studentAnswer?.answer?.trim()) {
-            return {
-              question_id: q.id, score: 0,
-              feedback: 'No answer provided.',
-              breakdown: { thesis: 0, evidence: 0, analysis: 0, counterclaim: 0 },
-              tagged_response: '',
-            };
+            return { question_id: q.id, score: 0, feedback: 'No answer provided.', breakdown: { thesis: 0, evidence: 0, analysis: 0, counterclaim: 0 }, tagged_response: '' };
           }
           try {
-            const result = await gradeEssay(
-              q.question_text, q.correct_answer, studentAnswer.answer
-            );
+            const result = await gradeEssay(q.question_text, q.correct_answer, studentAnswer.answer, aiInstruction);
             return { question_id: q.id, ...result };
-          } catch {
-            return {
-              question_id: q.id, score: null,
-              feedback: 'Could not be graded automatically.',
-              breakdown: null,
-              tagged_response: studentAnswer.answer,
-            };
+          } catch (e) {
+            console.error('gradeEssay failed (assignment):', e?.message || e);
+            return { question_id: q.id, score: null, feedback: 'Could not be graded automatically.', breakdown: null, tagged_response: studentAnswer.answer };
           }
         })
       );
     }
 
-    // ── Blend score ──
-    let weightedSum = 0;
-    let weightedCount = 0;
+    let weightedSum = 0, weightedCount = 0;
 
     if (mcQuestions.length > 0) {
-      const mcScore = (mcCorrect / mcQuestions.length) * 100;
-      weightedSum   += mcScore * mcQuestions.length;
+      weightedSum   += (mcCorrect / mcQuestions.length) * 100 * mcQuestions.length;
       weightedCount += mcQuestions.length;
     }
-
     const saScores = saFeedback.filter(r => r.score !== null);
     if (saScores.length > 0) {
-      const saAvg = saScores.reduce((s, r) => s + r.score, 0) / saScores.length;
-      weightedSum   += saAvg * saQuestions.length;
+      weightedSum   += (saScores.reduce((s, r) => s + r.score, 0) / saScores.length) * saQuestions.length;
       weightedCount += saQuestions.length;
     }
-
     const essayScores = essayFeedback.filter(r => r.score !== null);
     if (essayScores.length > 0) {
-      const essayAvg = essayScores.reduce((s, r) => s + r.score, 0) / essayScores.length;
-      weightedSum   += essayAvg * essayQuestions.length;
+      weightedSum   += (essayScores.reduce((s, r) => s + r.score, 0) / essayScores.length) * essayQuestions.length;
       weightedCount += essayQuestions.length;
     }
 
@@ -357,19 +313,15 @@ router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), 
 
     if (error) throw error;
     res.status(201).json({ submission });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
-// ── GET /api/units/:unitId/assignment/results/:studentId ─────
+// GET /api/units/:unitId/assignment/results/:studentId
 router.get('/:unitId/assignment/results/:studentId', authenticate, async (req, res, next) => {
   try {
     const { unitId, studentId } = req.params;
 
-    if (req.user.role === 'student' && req.user.id !== studentId) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
+    if (req.user.role === 'student' && req.user.id !== studentId) return res.status(403).json({ error: 'Access denied' });
     if (req.user.role === 'teacher') {
       const owns = await teacherOwnsUnit(unitId, req.user.id);
       if (!owns) return res.status(403).json({ error: 'Access denied' });
@@ -385,13 +337,10 @@ router.get('/:unitId/assignment/results/:studentId', authenticate, async (req, r
 
     if (error && error.code !== 'PGRST116') throw error;
     res.json({ submission: submission || null });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
-// ── GET /api/units/:unitId/assignment/all-results ────────────
-// Teacher only — all student submissions.
+// GET /api/units/:unitId/assignment/all-results
 router.get('/:unitId/assignment/all-results', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
     const { unitId } = req.params;
@@ -411,9 +360,7 @@ router.get('/:unitId/assignment/all-results', authenticate, requireRole('teacher
 
     if (error) throw error;
     res.json({ submissions: submissions || [] });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

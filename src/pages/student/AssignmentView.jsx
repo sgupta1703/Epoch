@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import EssayGuide from '../../components/EssayGuide';
 import { getAssignment, submitAssignment, getAssignmentResults } from '../../api/assignments';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import '../../styles/pages.css';
@@ -66,16 +67,22 @@ export default function AssignmentView({ user }) {
   const { unitId } = useParams();
 
   const [assignment, setAssignment] = useState(null);
-  const [sources, setSources] = useState([]);
-  const [questions, setQuestions] = useState([]);
-  const [answers, setAnswers] = useState({});
+  const [sources, setSources]       = useState([]);
+  const [questions, setQuestions]   = useState([]);
+  const [answers, setAnswers]       = useState({});
   const [submission, setSubmission] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]       = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]           = useState('');
   const [expandedSource, setExpandedSource] = useState(0);
 
+  const [guideOpen, setGuideOpen]           = useState(false);
+  const [guideQuestion, setGuideQuestion]   = useState('');
+  const [guideQuestionId, setGuideQuestionId] = useState(null);
+
   const view = submission ? 'results' : 'take';
+  // essay_guide_enabled defaults to true for older assignments without the field
+  const guideEnabled = assignment?.essay_guide_enabled !== false;
 
   useEffect(() => { fetchAll(); }, [unitId]);
 
@@ -100,6 +107,12 @@ export default function AssignmentView({ user }) {
     setAnswers(a => ({ ...a, [questionId]: answer }));
   }
 
+  function openGuide(q) {
+    setGuideQuestion(q.question_text);
+    setGuideQuestionId(q.id);
+    setGuideOpen(true);
+  }
+
   async function handleSubmit() {
     if (!assignment) return;
     const unanswered = questions.filter(q => !answers[q.id]);
@@ -114,7 +127,7 @@ export default function AssignmentView({ user }) {
   }
 
   const answeredCount = Object.keys(answers).length;
-  const totalCount = questions.length;
+  const totalCount    = questions.length;
 
   if (loading) return <LoadingSpinner label="Loading assignment…" />;
 
@@ -252,12 +265,12 @@ export default function AssignmentView({ user }) {
               <div key={q.id} className="quiz-student-question">
                 <div style={{ marginBottom: 8, fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>Question {i + 1} · {typeLabel(q.type)}</div>
                 <div className="quiz-student-question-text quiz-student-question-text--markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
+
                 {q.type === 'multiple_choice' && (
                   <div className="quiz-options-list">
                     {q.options?.map((opt, oi) => (
                       <button key={oi} className={`quiz-option-btn ${answers[q.id] === opt ? 'quiz-option-btn--selected' : ''}`} onClick={() => handleAnswer(q.id, opt)}>
-                        <span className="quiz-option-bullet">{answers[q.id] === opt ? '✓' : String.fromCharCode(65 + oi)}</span>
-                        {opt}
+                        <span className="quiz-option-bullet">{answers[q.id] === opt ? '✓' : String.fromCharCode(65 + oi)}</span>{opt}
                       </button>
                     ))}
                   </div>
@@ -267,6 +280,19 @@ export default function AssignmentView({ user }) {
                 )}
                 {q.type === 'essay' && (
                   <>
+                    {/* Only show guide button if teacher has it enabled */}
+                    {guideEnabled && (
+                      <button onClick={() => openGuide(q)} style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        marginBottom: 10, padding: '6px 12px',
+                        background: '#fef3cd', border: '1px solid #f0c040',
+                        borderRadius: 4, cursor: 'pointer', fontSize: 12,
+                        fontWeight: 600, color: '#7a5c00', fontFamily: 'var(--font-body)',
+                      }}>
+                        ✍️ Open Essay Guide
+                        <span style={{ fontSize: 11, fontWeight: 400 }}>— plan your outline & get coaching</span>
+                      </button>
+                    )}
                     <div className="essay-writing-hints">
                       <span className="essay-hint essay-hint--thesis">Thesis</span>
                       <span className="essay-hint essay-hint--evidence">Evidence</span>
@@ -291,6 +317,13 @@ export default function AssignmentView({ user }) {
           </div>
         </div>
       )}
+
+      <EssayGuide
+        isOpen={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        question={guideQuestion}
+        essayDraft={answers[guideQuestionId] || ''}
+      />
     </div>
   );
 }

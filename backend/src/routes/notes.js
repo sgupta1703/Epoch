@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabaseClient');
 const { generateNotes } = require('../services/claude');
+const { getUserSettings, buildTeacherAiInstruction } = require('../services/userSettings');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
 
@@ -66,7 +67,8 @@ router.post('/:unitId/notes/generate', authenticate, requireRole('teacher'), asy
       return res.status(400).json({ error: 'Unit must have a context before generating notes' });
     }
 
-    const content = await generateNotes(unit.title, unit.context);
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const content = await generateNotes(unit.title, unit.context, buildTeacherAiInstruction(settings));
     const now = new Date().toISOString();
 
     // Upsert — create or replace existing notes

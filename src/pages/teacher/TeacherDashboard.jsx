@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import Modal, { ModalActions } from '../../components/Modal';
@@ -9,11 +9,18 @@ import {
   createClassroom,
   deleteClassroom,
 } from '../../api/classrooms';
+import { useSettings } from '../../hooks/useSettings';
 import '../../styles/pages.css';
 import './Teacher.css';
 
+const DEFAULT_TEACHER_SETTINGS = {
+  default_landing: 'dashboard',
+  show_course_stats: true,
+};
+
 export default function TeacherDashboard({ user }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [classrooms, setClassrooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,10 +34,39 @@ export default function TeacherDashboard({ user }) {
   // Delete modal
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const { settings } = useSettings(DEFAULT_TEACHER_SETTINGS);
 
   useEffect(() => {
     fetchClassrooms();
   }, []);
+
+  useEffect(() => {
+    function handleClassroomsChanged() { fetchClassrooms(); }
+    window.addEventListener('epoch:classrooms-changed', handleClassroomsChanged);
+    return () => window.removeEventListener('epoch:classrooms-changed', handleClassroomsChanged);
+  }, []);
+
+  useEffect(() => {
+    if (!location.state?.applyDefaultLanding) return;
+    if (loading || classrooms.length === 0) return;
+    if (settings.default_landing === 'dashboard') return;
+
+    const lastClassroomId = localStorage.getItem('epoch_last_teacher_classroom_id');
+    const target = classrooms.find(classroom => classroom.id === lastClassroomId) || classrooms[0];
+    if (!target?.id) return;
+
+    if (settings.default_landing === 'last-course') {
+      navigate(`/teacher/classroom/${target.id}`, { replace: true });
+      return;
+    }
+
+    if (settings.default_landing === 'analytics') {
+      navigate(`/teacher/classroom/${target.id}`, {
+        replace: true,
+        state: { autoOpenClassPerformance: true },
+      });
+    }
+  }, [classrooms, loading, location.state, navigate, settings.default_landing]);
 
   async function fetchClassrooms() {
     setLoading(true);
@@ -51,6 +87,7 @@ export default function TeacherDashboard({ user }) {
     try {
       const { classroom } = await createClassroom({ name: newName.trim() });
       setClassrooms(c => [classroom, ...c]);
+      window.dispatchEvent(new CustomEvent('epoch:classrooms-changed'));
       setCreateOpen(false);
       setNewName('');
     } catch (err) {
@@ -66,6 +103,7 @@ export default function TeacherDashboard({ user }) {
     try {
       await deleteClassroom(deleteTarget.id);
       setClassrooms(c => c.filter(x => x.id !== deleteTarget.id));
+      window.dispatchEvent(new CustomEvent('epoch:classrooms-changed'));
       setDeleteTarget(null);
     } catch {
       // keep modal open, show nothing — simple
@@ -122,6 +160,22 @@ export default function TeacherDashboard({ user }) {
                   <p className="classroom-card-meta">
                     Created {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
+                  {settings.show_course_stats && (
+                    <div className="classroom-card-stats">
+                      <div className="classroom-card-stat">
+                        <span className="classroom-card-stat-label">Students</span>
+                        <strong className="classroom-card-stat-value">{c.student_count ?? 0}</strong>
+                      </div>
+                      <div className="classroom-card-stat">
+                        <span className="classroom-card-stat-label">Units</span>
+                        <strong className="classroom-card-stat-value">{c.unit_count ?? 0}</strong>
+                      </div>
+                      <div className="classroom-card-stat">
+                        <span className="classroom-card-stat-label">Visible</span>
+                        <strong className="classroom-card-stat-value">{c.visible_unit_count ?? 0}</strong>
+                      </div>
+                    </div>
+                  )}
                   <div className="classroom-card-footer">
                     <button
                       className="btn btn-dark"
