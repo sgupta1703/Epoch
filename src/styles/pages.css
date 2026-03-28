@@ -182,6 +182,36 @@
 
 .field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
 
+/* ── Global date input styling ── */
+input[type="date"] {
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+input[type="date"]:focus {
+  border-color: var(--rust);
+  box-shadow: 0 0 0 3px rgba(184,76,43,0.12);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+  filter: invert(30%) sepia(40%) saturate(500%) hue-rotate(340deg);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.9;
+}
+
 /* Alert / error banners */
 .alert {
   padding: 10px 14px;

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AppDatePicker from '../../components/AppDatePicker';
 import Modal, { ModalActions } from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { getPersonas, createPersona, updatePersona, deletePersona } from '../../api/personas';
@@ -34,6 +35,13 @@ export default function PersonasEditor({ unit }) {
   useEffect(() => {
     if (!unit?.id) return;
     fetchPersonas();
+  }, [unit?.id]);
+
+  useEffect(() => {
+    if (!unit?.id) return;
+    function handlePersonasChanged() { fetchPersonas(); }
+    window.addEventListener('epoch:personas-changed', handlePersonasChanged);
+    return () => window.removeEventListener('epoch:personas-changed', handlePersonasChanged);
   }, [unit?.id]);
 
   async function fetchPersonas() {
@@ -114,7 +122,7 @@ export default function PersonasEditor({ unit }) {
     } catch { /* silent */ } finally { setDeleting(false); }
   }
 
-  function field(key, value) {
+  function field(key) {
     return e => setForm(f => ({ ...f, [key]: e.target.value }));
   }
 
@@ -271,11 +279,7 @@ export default function PersonasEditor({ unit }) {
           </div>
           <div className="field">
             <label>Due Date (optional)</label>
-            <input
-              type="date"
-              value={form.due_date}
-              onChange={field('due_date')}
-            />
+            <AppDatePicker value={form.due_date} onChange={val => setForm(f => ({ ...f, due_date: val }))} />
           </div>
         </div>
       </Modal>

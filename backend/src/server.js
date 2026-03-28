@@ -12,6 +12,7 @@ const fileRoutes        = require('./routes/files');
 const assignmentRoutes  = require('./routes/assignments');
 const timelineRoutes    = require('./routes/timeline');
 const assistantRoutes   = require('./routes/assistant');
+const settingsRoutes    = require('./routes/settings');
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.use('/api/units',      quizRoutes);
 app.use('/api/units',      fileRoutes);
 app.use('/api/units',      assignmentRoutes);
 app.use('/api/assistant',  assistantRoutes);
+app.use('/api/settings',   settingsRoutes);
 
 app.get('/api/health', (req, res) => {
   console.log('[health] ok');

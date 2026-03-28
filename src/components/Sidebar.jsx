@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { getUnits } from '../api/units';
+import { getClassrooms } from '../api/classrooms';
 import { useAuth } from '../hooks/useAuth';
 import './Sidebar.css';
 
@@ -155,6 +156,57 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
   const showUnitSkeleton = unitsLoading && units.length === 0;
   const visiblePanelClassroom = panelClassroom || panelSnapshot;
   const visiblePanelId = panelClassroom?.id || panelSnapshot?.id || panelId;
+
+  async function refreshClassroomList() {
+    try {
+      const { classrooms: nextClassrooms } = await getClassrooms();
+      setDisplayClassrooms(nextClassrooms || []);
+      cache.classrooms = nextClassrooms || [];
+    } catch {
+      // Keep the current sidebar state if refresh fails.
+    }
+  }
+
+  async function refreshPanelUnits(targetPanelId) {
+    if (!targetPanelId) return;
+    setUnitsLoading(true);
+    try {
+      const { units: nextUnits } = await getUnits(targetPanelId);
+      setUnits(nextUnits || []);
+      cache.unitsByClassroom.set(targetPanelId, nextUnits || []);
+    } catch {
+      setUnits([]);
+    } finally {
+      setUnitsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isTeacher) return undefined;
+
+    function handleClassroomsChanged() {
+      cache.unitsByClassroom.clear();
+      refreshClassroomList();
+      if (panelId) {
+        refreshPanelUnits(panelId);
+      }
+    }
+
+    function handleUnitsChanged() {
+      cache.unitsByClassroom.clear();
+      if (panelId) {
+        refreshPanelUnits(panelId);
+      }
+    }
+
+    window.addEventListener('epoch:classrooms-changed', handleClassroomsChanged);
+    window.addEventListener('epoch:units-changed', handleUnitsChanged);
+
+    return () => {
+      window.removeEventListener('epoch:classrooms-changed', handleClassroomsChanged);
+      window.removeEventListener('epoch:units-changed', handleUnitsChanged);
+    };
+  }, [cache, isTeacher, panelId]);
 
   // Detect current unit from path for highlighting
   const pathParts = location.pathname.split('/').filter(Boolean);

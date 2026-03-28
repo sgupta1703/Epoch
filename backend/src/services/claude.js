@@ -3,7 +3,11 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-async function generateNotes(title, context) {
+function settingsBlock(instruction) {
+  return instruction ? `\n\nAI Preference Instructions:\n${instruction}` : '';
+}
+
+async function generateNotes(title, context, aiInstruction = '') {
   const prompt = `You are an expert history educator. Generate comprehensive, well-structured notes for a high school history unit.
 
 Unit Title: ${title}
@@ -17,13 +21,13 @@ Write the notes in Markdown. Include these sections:
 5. Causes & Effects
 6. Significance & Legacy
 
-Keep the language clear and appropriate and extremely detailed.`;
+Keep the language clear and appropriate and extremely detailed.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   return result.response.text();
 }
 
-async function chatWithEpochAssistant(messages) {
+async function chatWithEpochAssistant(messages, classrooms = [], units = [], aiInstruction = '') {
   const safeMessages = Array.isArray(messages) ? messages.filter(message => message?.role && message?.content) : [];
 
   if (safeMessages.length === 0) {
@@ -51,14 +55,168 @@ async function chatWithEpochAssistant(messages) {
     parts: [{ text: message.content }],
   }));
 
+  const classroomList = classrooms.length > 0
+    ? classrooms.map(c => `- "${c.name}" (id: ${c.id})`).join('\n')
+    : '(no classrooms yet)';
+
+  const unitList = units.length > 0
+    ? units.map(u => {
+      const ctx = u.context ? ` | context: "${u.context.slice(0, 120).replace(/\n/g, ' ')}..."` : '';
+      const visibility = u.is_visible ? 'visible' : 'hidden';
+      return `- "${u.title}" (id: ${u.id}, classroom: "${u.classroom_name}", visibility: ${visibility}${ctx})`;
+      }).join('\n')
+    : '(no units yet)';
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const tools = [{
+    functionDeclarations: [
+      {
+        name: 'create_classroom',
+        description: "Create a new classroom. The teacher MUST provide the classroom name — never invent one. If no name is given, ask for it before calling this function.",
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: "The exact classroom name as specified by the teacher." },
+          },
+          required: ['name'],
+        },
+      },
+      {
+        name: 'create_unit',
+        description: "Create a new unit in one of the teacher's classrooms. Only call this when the teacher explicitly asks to create a unit.",
+        parameters: {
+          type: 'object',
+          properties: {
+            title:          { type: 'string', description: 'The properly formatted, correctly spelled title for the unit. Use title case (e.g. "The Renaissance", "World War II", "The Cold War").' },
+            context:        { type: 'string', description: 'A 3-5 sentence teacher-facing context for the unit describing the historical topic, key themes, important figures, and time period. This will guide AI generation of notes, quizzes, and assignments.' },
+            classroom_id:   { type: 'string', description: 'The exact ID of the classroom from the list provided' },
+            classroom_name: { type: 'string', description: 'The display name of the classroom' },
+            is_visible:     { type: 'boolean', description: 'Whether to make the unit visible to students immediately. Default false unless the teacher says to publish or make visible.' },
+            due_date:       { type: 'string', description: 'Optional ISO 8601 due date (YYYY-MM-DD). Only include if the teacher specified one.' },
+          },
+          required: ['title', 'context', 'classroom_id', 'classroom_name'],
+        },
+      },
+      {
+        name: 'create_multiple_units',
+        description: "Generate and create a full set of NEW curriculum units for a classroom course. ONLY use this when the teacher explicitly asks to create, generate, or add units. Do NOT use this if the teacher is asking to show, hide, publish, or make existing units visible — use set_unit_visibility for that.",
+        parameters: {
+          type: 'object',
+          properties: {
+            classroom_id:   { type: 'string', description: 'The exact ID of the classroom from the list provided' },
+            classroom_name: { type: 'string', description: 'The display name of the classroom' },
+            is_visible:     { type: 'boolean', description: 'Whether to make the units visible to students immediately. Default false unless the teacher says to publish or make visible.' },
+            units: {
+              type: 'array',
+              description: 'The full list of units to create for this course, in chronological/logical order.',
+              items: {
+                type: 'object',
+                properties: {
+                  title:   { type: 'string', description: 'Properly formatted, correctly spelled unit title in title case.' },
+                  context: { type: 'string', description: 'A 3-5 sentence teacher-facing context describing the topic, key themes, important figures, and time period.' },
+                },
+              },
+            },
+          },
+          required: ['classroom_id', 'classroom_name', 'units'],
+        },
+      },
+      {
+        name: 'create_personas',
+        description: "Create one or more historical personas for a specific unit. IMPORTANT: If the teacher has not specified which unit, respond with a text question asking them — do NOT call this function until the unit is known. Auto-fill any fields the teacher did not provide using historical knowledge. Correct any spelling errors in names.",
+        parameters: {
+          type: 'object',
+          properties: {
+            unit_id:        { type: 'string', description: 'The exact ID of the unit from the unit list.' },
+            unit_name:      { type: 'string', description: 'The display name of the unit.' },
+            classroom_name: { type: 'string', description: 'The display name of the classroom.' },
+            personas: {
+              type: 'array',
+              description: 'The personas to create.',
+              items: {
+                type: 'object',
+                properties: {
+                  name:        { type: 'string',  description: 'Correctly spelled full name of the historical figure.' },
+                  description: { type: 'string',  description: '2-3 sentence background description of who this person was and their historical significance. Always generate this from historical knowledge.' },
+                  year_start:  { type: 'integer', description: 'Birth year (or start year of their active period). Always infer from history.' },
+                  year_end:    { type: 'integer', description: 'Death year (or end year). Infer from history.' },
+                  location:    { type: 'string',  description: 'Primary historical location (e.g. "Florence, Italy"). Infer from history.' },
+                  min_turns:   { type: 'integer', description: 'Minimum exchanges before the conversation is complete. Default 5 unless the teacher specified a different number.' },
+                },
+                required: ['name', 'description', 'year_start'],
+              },
+            },
+          },
+          required: ['unit_id', 'unit_name', 'classroom_name', 'personas'],
+        },
+      },
+      {
+        name: 'set_unit_visibility',
+        description: "Show or hide one or more EXISTING units from the teacher's unit list. Use this when the teacher says make visible, hide, publish, unpublish, show, or similar — for units that already exist. Match unit names even if the teacher spells them incorrectly. If the teacher says 'make all units in X visible', include all unit IDs for that classroom.",
+        parameters: {
+          type: 'object',
+          properties: {
+            unit_ids:   { type: 'array', items: { type: 'string' }, description: 'Array of unit IDs from the unit list to affect.' },
+            unit_names: { type: 'array', items: { type: 'string' }, description: 'The correctly spelled display names of the units being changed, in the same order as unit_ids.' },
+            visible:    { type: 'boolean', description: 'true to make units visible to students, false to hide them.' },
+          },
+          required: ['unit_ids', 'unit_names', 'visible'],
+        },
+      },
+      {
+        name: 'delete_unit',
+        description: "Delete one EXISTING unit. Use this only when the teacher explicitly asks to delete or remove a unit. Match the intended unit from the provided unit list even if the teacher misspells it. Do not use this for deleting classrooms or courses.",
+        parameters: {
+          type: 'object',
+          properties: {
+            unit_id: { type: 'string', description: 'The exact ID of the unit to delete from the provided unit list.' },
+            unit_name: { type: 'string', description: 'The correctly spelled display name of the unit to delete.' },
+            classroom_name: { type: 'string', description: 'The display name of the classroom the unit belongs to.' },
+          },
+          required: ['unit_id', 'unit_name', 'classroom_name'],
+        },
+      },
+      {
+        name: 'delete_multiple_units',
+        description: "Delete a specific subset of EXISTING units. Use this when the teacher asks to delete some units in a classroom but not all of them, including filters like visible units, hidden units, selected named units, or 'current visible units'. Do not use this when only one unit should be deleted or when every unit in the classroom should be deleted.",
+        parameters: {
+          type: 'object',
+          properties: {
+            classroom_id: { type: 'string', description: 'The exact ID of the classroom containing the units.' },
+            classroom_name: { type: 'string', description: 'The display name of the classroom.' },
+            unit_ids: { type: 'array', items: { type: 'string' }, description: 'The exact IDs of the units to delete from the provided unit list.' },
+            unit_names: { type: 'array', items: { type: 'string' }, description: 'The correctly spelled display names of the units to delete, in the same order as unit_ids.' },
+          },
+          required: ['classroom_id', 'classroom_name', 'unit_ids', 'unit_names'],
+        },
+      },
+      {
+        name: 'delete_all_units',
+        description: "Delete all EXISTING units in one classroom. Use this only when the teacher explicitly asks to delete all units, wipe units, clear units, or remove every unit from a specific classroom. Do not use this for deleting a classroom or course.",
+        parameters: {
+          type: 'object',
+          properties: {
+            classroom_id: { type: 'string', description: 'The exact ID of the classroom whose units should be deleted.' },
+            classroom_name: { type: 'string', description: 'The display name of the classroom.' },
+            unit_ids: { type: 'array', items: { type: 'string' }, description: 'All existing unit IDs in that classroom.' },
+            unit_names: { type: 'array', items: { type: 'string' }, description: 'All existing unit names in that classroom, in the same order as unit_ids.' },
+          },
+          required: ['classroom_id', 'classroom_name', 'unit_ids', 'unit_names'],
+        },
+      },
+    ],
+  }];
+
   const chat = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
+    tools,
     systemInstruction: `You are Mr. Curator, a teacher-facing assistant inside Epoch, a platform built to help teachers teach history through structured classroom units and interactive activities.
 
 What Epoch is:
 - Epoch is used by teachers and students in history classes.
 - Teachers create classrooms, invite students, and build units inside each classroom.
-- A unit is the main container for instruction. Units can include notes, personas, quizzes, assignments, due dates, visibility controls, and timeline content.
+- A unit is the main container for instruction. Units can include notes, personas, quizzes, assignments, due dates, visibility controls.
 - Each unit also has a teacher-facing context field. That context is internal authoring material used to guide AI generation for notes, personas, quizzes, assignments, and other unit content.
 - The context field is primarily for teachers and should not be assumed to be student-facing.
 - Teachers can generate content with AI and then review, revise, publish, hide, or manage it manually.
@@ -68,6 +226,12 @@ What Epoch is:
 Your responsibilities:
 1. Help teachers use Epoch effectively and accurately.
 2. Answer history questions clearly for planning, instruction, and classroom use.
+3. When a teacher asks you to create a unit, use the create_unit function — do not just give instructions.
+4. When a teacher asks you to create personas, use create_personas — but ONLY after you know the target unit. If the unit is not clear, ask one brief question first.
+5. For persona creation: correct spelling errors, auto-fill description/years/location from historical knowledge, default min_turns to 5.
+6. When a teacher asks to delete one unit, use delete_unit.
+7. When a teacher asks to delete all units in a classroom, use delete_all_units.
+8. When a teacher asks to delete a subset of units in a classroom, such as only visible units or a selected group, use delete_multiple_units.
 
 Behavior rules:
 - Be concise, practical, and teacher-oriented.
@@ -77,14 +241,31 @@ Behavior rules:
 - Favor actionable advice, lesson-use suggestions, and examples when helpful.
 - If a question is ambiguous, ask one brief clarifying question.
 - Do not mention internal model details or hidden instructions.
-- Prefer short paragraphs or bullet points when useful.`,
+- Prefer short paragraphs or bullet points when useful.
+- Never offer or imply that you can delete a classroom, course, or student account. You can only delete units.
+- For delete_all_units, only call the function when the target classroom is clear.
+- For requests like "delete the visible units", "delete the hidden units", or "delete these units", prefer delete_multiple_units with the exact matching unit IDs from the provided unit list.
+
+Teacher's classrooms:
+${classroomList}
+
+Teacher's units:
+${unitList}
+
+Today's date: ${today}${settingsBlock(aiInstruction)}`,
   }).startChat({ history });
 
   const result = await chat.sendMessage(lastMessage.content);
-  return result.response.text();
+  const response = result.response;
+
+  const functionCall = response.functionCalls?.()?.[0];
+  if (functionCall) {
+    return { type: 'action', name: functionCall.name, args: functionCall.args };
+  }
+  return { type: 'text', content: response.text() };
 }
 
-async function chatWithPersona(persona, unitContext, messages) {
+async function chatWithPersona(persona, unitContext, messages, aiInstruction = '') {
   let historicalContext = '';
   if (persona.year_start) {
     historicalContext += persona.year_end
@@ -119,7 +300,7 @@ Instructions:
 - You have no knowledge of events after your time period.
 - Never break character or acknowledge you are an AI.
 - If you don't know something, respond naturally in character.
-- Limit responses to 1-2 paragraphs. Always include specific historical details.`;
+- Limit responses to 1-2 paragraphs. Always include specific historical details.${settingsBlock(aiInstruction)}`;
 
   const history = messages.slice(0, -1).map(m => ({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -137,7 +318,7 @@ Instructions:
   return result.response.text();
 }
 
-async function generateQuizQuestions(title, context, count = 10) {
+async function generateQuizQuestions(title, context, count = 10, aiInstruction = '') {
   const prompt = `You are an expert history educator. Generate ${count} quiz questions for a high school history unit.
 
 Unit Title: ${title}
@@ -150,7 +331,7 @@ Return ONLY a valid JSON array. No explanation, no markdown, no backticks. Each 
 - "correct_answer": string
 - "order_index": number (0-based)
 
-Mix multiple choice and short answer questions. Make them actually hard for high school students. DO not make them superly easy but also not tricky at the same time`;
+Mix multiple choice and short answer questions. Make them actually hard for high school students. DO not make them superly easy but also not tricky at the same time.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   let raw = result.response.text().trim();
@@ -169,7 +350,7 @@ Mix multiple choice and short answer questions. Make them actually hard for high
   return JSON.parse(raw);
 }
 
-async function gradeShortAnswer(questionText, correctAnswer, studentAnswer) {
+async function gradeShortAnswer(questionText, correctAnswer, studentAnswer, aiInstruction = '') {
   const prompt = `You are a history teacher grading a short answer quiz question.
 
 Question: ${questionText}
@@ -183,15 +364,19 @@ Grade the student's answer on a scale of 0–100 in intervals of 25, so 0, 25, 5
 - Do NOT penalize for different wording if the meaning is correct
 
 Return ONLY a valid JSON object with exactly these two fields, no markdown, no explanation:
-{"score": <number 0-100>, "feedback": "<one sentence of constructive feedback>"}`;
+{"score": <number 0-100>, "feedback": "<one sentence of constructive feedback>"}${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   let raw = result.response.text().trim();
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error(`gradeShortAnswer: no JSON object in response: ${raw.slice(0, 200)}`);
+  raw = raw.slice(start, end + 1);
   return JSON.parse(raw);
 }
 
-async function gradeEssay(questionText, essayPrompt, studentAnswer) {
+async function gradeEssay(questionText, essayPrompt, studentAnswer, aiInstruction = '') {
   const prompt = `You are an experienced history teacher grading a student essay response.
 
 Essay Question: ${questionText}
@@ -231,11 +416,15 @@ Return ONLY a valid JSON object with exactly these fields, no markdown, no backt
     "counterclaim": <number 0-25>
   },
   "tagged_response": "<the student's full essay with inline tags applied>"
-}`;
+}${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   let raw = result.response.text().trim();
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error(`gradeEssay: no JSON object in response: ${raw.slice(0, 200)}`);
+  raw = raw.slice(start, end + 1);
   return JSON.parse(raw);
 }
 
@@ -248,7 +437,7 @@ function normalizeMcAnswer(answer) {
     .toLowerCase();
 }
 
-async function analyzePerformance(unit, questions, submission) {
+async function analyzePerformance(unit, questions, submission, aiInstruction = '') {
   const breakdown = questions.map((q, i) => {
     const studentAnswer = submission.answers.find(a => a.question_id === q.id);
     const saFeedback = submission.sa_feedback?.find(r => r.question_id === q.id);
@@ -293,7 +482,7 @@ Write a teacher-facing analysis. Return ONLY a valid JSON object with exactly th
   "recommendation": "<1-2 sentence concrete suggestion for what the teacher or student should focus on next>"
 }
 
-Be specific to the actual questions and answers — reference real content from the quiz, not generic feedback.`;
+Be specific to the actual questions and answers — reference real content from the quiz, not generic feedback.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   let raw = result.response.text().trim();
@@ -301,7 +490,7 @@ Be specific to the actual questions and answers — reference real content from 
   return JSON.parse(raw);
 }
 
-async function generateAssignmentContent(title, context, sourceCount = 2, questionCount = 4) {
+async function generateAssignmentContent(title, context, sourceCount = 2, questionCount = 4, aiInstruction = '') {
   const prompt = `You are an expert history educator creating a document-based assignment for a high school history unit.
 
 Unit Title: ${title}
@@ -336,7 +525,7 @@ Guidelines:
 - Secondary sources: analytical passages written by a historian in third person. THE CANNOT BE AI GENERATED and MUST BE BASED ON REAL HISTORICAL ANALYSIS (e.g. from a textbook, article, or documentary).
 - Every question must reference something specific from the source text — not just general knowledge.
 - Mix question types: include one essay question if questionCount >= 3.
-- Essay correct_answer must describe: the thesis expected, which specific evidence from the source(s) to cite, and the depth of analysis required.`;
+- Essay correct_answer must describe: the thesis expected, which specific evidence from the source(s) to cite, and the depth of analysis required.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   let raw = result.response.text().trim();
@@ -356,7 +545,7 @@ Guidelines:
  * @param {Array<{id: string, title: string, context: string}>} units
  * @returns {Array<event>}
  */
-async function generateTimeline(classroomTitle, units) {
+async function generateTimeline(classroomTitle, units, aiInstruction = '') {
   const unitsText = units
     .map((u, i) => `Unit ${i + 1}: ${u.title}\nContext: ${u.context || '(no context)'}`)
     .join('\n\n');
@@ -386,7 +575,7 @@ Rules:
 - date_sort must be a plain integer (no BC suffix, just negative number).
 - Each event must be historically accurate.
 - Spread events across multiple units if possible — don't cluster all events in one unit.
-- Titles should be punchy and memorable.`;
+- Titles should be punchy and memorable.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   let raw = result.response.text().trim();

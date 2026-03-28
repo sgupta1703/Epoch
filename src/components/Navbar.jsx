@@ -12,12 +12,14 @@ export default function Navbar({ user }) {
 
   const isTeacher = user?.role === 'teacher';
   const dashboardPath = isTeacher ? '/teacher' : '/student';
+  const settingsPath = isTeacher ? '/teacher/settings' : '/student/settings';
 
   // Build breadcrumb from path
   function getBreadcrumb() {
     const parts = location.pathname.split('/').filter(Boolean);
     // e.g. ['teacher', 'classroom', '123', 'unit', '456']
     if (parts.length <= 1) return null;
+    if (parts.includes('settings')) return 'Settings';
     if (parts.includes('classroom') && !parts.includes('unit')) return 'Classroom';
     if (parts.includes('unit')) {
       const tab = parts[parts.length - 1];
@@ -117,6 +119,17 @@ export default function Navbar({ user }) {
                   <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
                 </svg>
                 Dashboard
+              </Link>
+              <Link
+                to={settingsPath}
+                className="navbar-dropdown-item"
+                onClick={() => setMenuOpen(false)}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8" cy="8" r="2.2" />
+                  <path d="M13.2 9.4l.3-1.4-1.3-.8a4.8 4.8 0 0 0-.2-.6l.5-1.4-1-1-1.4.5a4.8 4.8 0 0 0-.6-.2L8 2.8l-1.4.3-.8 1.3a4.8 4.8 0 0 0-.6.2l-1.4-.5-1 1 .5 1.4a4.8 4.8 0 0 0-.2.6l-1.3.8.3 1.4 1.3.8c.1.2.1.4.2.6l-.5 1.4 1 1 1.4-.5c.2.1.4.1.6.2l.8 1.3 1.4-.3.8-1.3c.2-.1.4-.1.6-.2l1.4.5 1-1-.5-1.4c.1-.2.1-.4.2-.6 0 0 1.3-.8 1.3-.8z" />
+                </svg>
+                Settings
               </Link>
               <div className="navbar-dropdown-divider" />
               <button

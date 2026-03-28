@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
+import AppDatePicker from '../../components/AppDatePicker';
 import Modal, { ModalActions } from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { getAssignment, generateAssignment, saveAssignment, getAllAssignmentResults } from '../../api/assignments';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import '../../styles/pages.css';
 import './Teacher.css';
-
-// ── Helpers ───────────────────────────────────────────────────
 
 function scoreColor(score) {
   if (score === null || score === undefined) return 'var(--muted)';
@@ -35,78 +34,52 @@ function typeBadgeClass(type) {
 }
 
 function normalizeMcAnswer(answer) {
-  return String(answer || '')
-    .trim()
-    .replace(/^[A-Z]\)\s*/i, '')
-    .replace(/^[A-Z][.: -]+\s*/i, '')
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
+  return String(answer || '').trim().replace(/^[A-Z]\)\s*/i, '').replace(/^[A-Z][.: -]+\s*/i, '').replace(/\s+/g, ' ').toLowerCase();
 }
 
 function isMatchingMcAnswer(studentAnswer, correctAnswer) {
   return normalizeMcAnswer(studentAnswer) !== '' && normalizeMcAnswer(studentAnswer) === normalizeMcAnswer(correctAnswer);
 }
 
-const BLANK_SOURCE = {
-  title: '',
-  content: '',
-  source_type: 'primary',
-  format: 'real',
-};
-
-const BLANK_QUESTION = {
-  question_text: '',
-  type: 'short_answer',
-  options: ['', '', '', ''],
-  correct_answer: '',
-};
-
-// ── Component ─────────────────────────────────────────────────
+const BLANK_SOURCE   = { title: '', content: '', source_type: 'primary', format: 'real' };
+const BLANK_QUESTION = { question_text: '', type: 'short_answer', options: ['', '', '', ''], correct_answer: '' };
 
 export default function AssignmentEditor({ unit, students = [] }) {
   const [assignment, setAssignment] = useState(null);
-  const [sources, setSources] = useState([]);
-  const [questions, setQuestions] = useState([]);
-  const [dueDate, setDueDate] = useState('');
+  const [sources, setSources]       = useState([]);
+  const [questions, setQuestions]   = useState([]);
+  const [dueDate, setDueDate]       = useState('');
+  const [essayGuideEnabled, setEssayGuideEnabled] = useState(true);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]     = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
+  const [saving, setSaving]       = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [error, setError]         = useState('');
 
-  // AI generate counts
-  const [genSources, setGenSources] = useState(2);
+  const [genSources, setGenSources]     = useState(2);
   const [genQuestions, setGenQuestions] = useState(4);
 
-  // Tabs: 'content' | 'students'
   const [activeTab, setActiveTab] = useState('content');
 
-  // Source modal
-  const [sourceModal, setSourceModal] = useState(false);
-  const [editSourceIdx, setEditSourceIdx] = useState(null);
-  const [sourceForm, setSourceForm] = useState({ ...BLANK_SOURCE });
+  const [sourceModal, setSourceModal]       = useState(false);
+  const [editSourceIdx, setEditSourceIdx]   = useState(null);
+  const [sourceForm, setSourceForm]         = useState({ ...BLANK_SOURCE });
   const [sourceFormError, setSourceFormError] = useState('');
 
-  // Question modal
-  const [questionModal, setQuestionModal] = useState(false);
-  const [editQuestionIdx, setEditQuestionIdx] = useState(null);
-  const [qForm, setQForm] = useState({ ...BLANK_QUESTION, options: ['', '', '', ''] });
-  const [qFormError, setQFormError] = useState('');
+  const [questionModal, setQuestionModal]       = useState(false);
+  const [editQuestionIdx, setEditQuestionIdx]   = useState(null);
+  const [qForm, setQForm]                       = useState({ ...BLANK_QUESTION, options: ['', '', '', ''] });
+  const [qFormError, setQFormError]             = useState('');
 
-  // Student results
-  const [submissions, setSubmissions] = useState([]);
+  const [submissions, setSubmissions]           = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
 
-  useEffect(() => {
-    if (!unit?.id) return;
-    fetchAssignment();
-  }, [unit?.id]);
+  const hasEssayQuestions = questions.some(q => q.type === 'essay');
 
-  useEffect(() => {
-    if (activeTab === 'students' && assignment) fetchSubmissions();
-  }, [activeTab, assignment]);
+  useEffect(() => { if (!unit?.id) return; fetchAssignment(); }, [unit?.id]);
+  useEffect(() => { if (activeTab === 'students' && assignment) fetchSubmissions(); }, [activeTab, assignment]);
 
   async function fetchAssignment() {
     setLoading(true);
@@ -117,10 +90,9 @@ export default function AssignmentEditor({ unit, students = [] }) {
         setSources(assignment.sources || []);
         setQuestions(assignment.questions || []);
         setDueDate(assignment.due_date?.slice(0, 10) || '');
+        setEssayGuideEnabled(assignment.essay_guide_enabled ?? true);
       }
-    } catch { /* silent */ } finally {
-      setLoading(false);
-    }
+    } catch { /* silent */ } finally { setLoading(false); }
   }
 
   async function fetchSubmissions() {
@@ -129,171 +101,80 @@ export default function AssignmentEditor({ unit, students = [] }) {
       const { submissions } = await getAllAssignmentResults(unit.id);
       const enrolledIds = new Set(students.map(s => s.id));
       setSubmissions((submissions || []).filter(s => enrolledIds.has(s.student_id)));
-    } catch { /* silent */ } finally {
-      setSubmissionsLoading(false);
-    }
+    } catch { /* silent */ } finally { setSubmissionsLoading(false); }
   }
 
   async function handleGenerate() {
-    if (!unit?.context) {
-      setError('This unit has no context. Edit the unit to add context before generating.');
-      return;
-    }
-    setError('');
-    setGenerating(true);
+    if (!unit?.context) { setError('This unit has no context. Edit the unit to add context before generating.'); return; }
+    setError(''); setGenerating(true);
     try {
-      const { assignment } = await generateAssignment(unit.id, {
-        source_count: genSources,
-        question_count: genQuestions,
-      });
-      setAssignment(assignment);
-      setSources(assignment.sources || []);
-      setQuestions(assignment.questions || []);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Generation failed. Try again.');
-    } finally {
-      setGenerating(false);
-    }
+      const { assignment } = await generateAssignment(unit.id, { source_count: genSources, question_count: genQuestions });
+      setAssignment(assignment); setSources(assignment.sources || []); setQuestions(assignment.questions || []);
+    } catch (err) { setError(err.response?.data?.error || 'Generation failed. Try again.'); }
+    finally { setGenerating(false); }
   }
 
   async function handleSave() {
-    if (sources.length === 0 && questions.length === 0) {
-      setError('Add at least one source or question before saving.');
-      return;
-    }
-    setError('');
-    setSaving(true);
+    if (sources.length === 0 && questions.length === 0) { setError('Add at least one source or question before saving.'); return; }
+    setError(''); setSaving(true);
     try {
       const { assignment } = await saveAssignment(unit.id, {
-        sources,
-        questions,
-        due_date: dueDate || null,
+        sources, questions, due_date: dueDate || null, essay_guide_enabled: essayGuideEnabled,
       });
-      setAssignment(assignment);
-      setSources(assignment.sources || []);
-      setQuestions(assignment.questions || []);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    } catch {
-      setError('Failed to save assignment.');
-    } finally {
-      setSaving(false);
-    }
+      setAssignment(assignment); setSources(assignment.sources || []); setQuestions(assignment.questions || []);
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch { setError('Failed to save assignment.'); }
+    finally { setSaving(false); }
   }
 
-  // ── Source modal ──
-  function openAddSource() {
-    setEditSourceIdx(null);
-    setSourceForm({ ...BLANK_SOURCE });
-    setSourceFormError('');
-    setSourceModal(true);
-  }
-
-  function openEditSource(idx) {
-    setEditSourceIdx(idx);
-    setSourceForm({ ...sources[idx] });
-    setSourceFormError('');
-    setSourceModal(true);
-  }
+  function openAddSource() { setEditSourceIdx(null); setSourceForm({ ...BLANK_SOURCE }); setSourceFormError(''); setSourceModal(true); }
+  function openEditSource(idx) { setEditSourceIdx(idx); setSourceForm({ ...sources[idx] }); setSourceFormError(''); setSourceModal(true); }
 
   function handleSourceSubmit() {
     if (!sourceForm.title.trim()) { setSourceFormError('Title is required.'); return; }
     if (!sourceForm.content.trim()) { setSourceFormError('Content is required.'); return; }
-
-    const built = {
-      ...sourceForm,
-      title:   sourceForm.title.trim(),
-      content: sourceForm.content.trim(),
-      order_index: editSourceIdx !== null ? editSourceIdx : sources.length,
-    };
-
-    if (editSourceIdx !== null) {
-      setSources(s => s.map((x, i) => i === editSourceIdx ? built : x));
-    } else {
-      setSources(s => [...s, built]);
-    }
+    const built = { ...sourceForm, title: sourceForm.title.trim(), content: sourceForm.content.trim(), order_index: editSourceIdx !== null ? editSourceIdx : sources.length };
+    if (editSourceIdx !== null) { setSources(s => s.map((x, i) => i === editSourceIdx ? built : x)); }
+    else { setSources(s => [...s, built]); }
     setSourceModal(false);
   }
 
-  function removeSource(idx) {
-    setSources(s => s.filter((_, i) => i !== idx).map((x, i) => ({ ...x, order_index: i })));
-  }
+  function removeSource(idx) { setSources(s => s.filter((_, i) => i !== idx).map((x, i) => ({ ...x, order_index: i }))); }
 
-  // ── Question modal ──
-  function openAddQuestion() {
-    setEditQuestionIdx(null);
-    setQForm({ ...BLANK_QUESTION, options: ['', '', '', ''] });
-    setQFormError('');
-    setQuestionModal(true);
-  }
-
+  function openAddQuestion() { setEditQuestionIdx(null); setQForm({ ...BLANK_QUESTION, options: ['', '', '', ''] }); setQFormError(''); setQuestionModal(true); }
   function openEditQuestion(idx) {
-    const q = questions[idx];
-    setEditQuestionIdx(idx);
-    setQForm({
-      question_text:  q.question_text,
-      type:           q.type,
-      options:        q.options ? [...q.options] : ['', '', '', ''],
-      correct_answer: q.correct_answer,
-    });
-    setQFormError('');
-    setQuestionModal(true);
+    const q = questions[idx]; setEditQuestionIdx(idx);
+    setQForm({ question_text: q.question_text, type: q.type, options: q.options ? [...q.options] : ['', '', '', ''], correct_answer: q.correct_answer });
+    setQFormError(''); setQuestionModal(true);
   }
 
   function handleQuestionSubmit() {
     if (!qForm.question_text.trim()) { setQFormError('Question text is required.'); return; }
-    if (!qForm.correct_answer.trim()) {
-      setQFormError(qForm.type === 'essay' ? 'Grading prompt is required.' : 'Correct answer is required.');
-      return;
-    }
-    if (qForm.type === 'multiple_choice') {
-      if (qForm.options.filter(o => o.trim()).length < 2) {
-        setQFormError('Add at least 2 options.');
-        return;
-      }
-    }
-
+    if (!qForm.correct_answer.trim()) { setQFormError(qForm.type === 'essay' ? 'Grading prompt is required.' : 'Correct answer is required.'); return; }
+    if (qForm.type === 'multiple_choice' && qForm.options.filter(o => o.trim()).length < 2) { setQFormError('Add at least 2 options.'); return; }
     const built = {
-      question_text:  qForm.question_text.trim(),
-      type:           qForm.type,
-      options:        qForm.type === 'multiple_choice' ? qForm.options.filter(o => o.trim()) : null,
+      question_text: qForm.question_text.trim(), type: qForm.type,
+      options: qForm.type === 'multiple_choice' ? qForm.options.filter(o => o.trim()) : null,
       correct_answer: qForm.correct_answer.trim(),
-      order_index:    editQuestionIdx !== null ? editQuestionIdx : questions.length,
+      order_index: editQuestionIdx !== null ? editQuestionIdx : questions.length,
     };
-
-    if (editQuestionIdx !== null) {
-      setQuestions(qs => qs.map((q, i) => i === editQuestionIdx ? built : q));
-    } else {
-      setQuestions(qs => [...qs, built]);
-    }
+    if (editQuestionIdx !== null) { setQuestions(qs => qs.map((q, i) => i === editQuestionIdx ? built : q)); }
+    else { setQuestions(qs => [...qs, built]); }
     setQuestionModal(false);
   }
 
-  function removeQuestion(idx) {
-    setQuestions(qs => qs.filter((_, i) => i !== idx).map((q, i) => ({ ...q, order_index: i })));
-  }
+  function removeQuestion(idx) { setQuestions(qs => qs.filter((_, i) => i !== idx).map((q, i) => ({ ...q, order_index: i }))); }
 
   if (loading) return <LoadingSpinner fullPage label="Loading assignment…" />;
 
   return (
     <div>
-      {/* ── Tab bar ── */}
       <div className="quiz-tab-bar">
-        <button
-          className={`quiz-tab ${activeTab === 'content' ? 'quiz-tab--active' : ''}`}
-          onClick={() => setActiveTab('content')}
-        >
-          Content
-          {(sources.length > 0 || questions.length > 0) && (
-            <span className="quiz-tab-badge">{sources.length + questions.length}</span>
-          )}
+        <button className={`quiz-tab ${activeTab === 'content' ? 'quiz-tab--active' : ''}`} onClick={() => setActiveTab('content')}>
+          Content {(sources.length > 0 || questions.length > 0) && <span className="quiz-tab-badge">{sources.length + questions.length}</span>}
         </button>
-        <button
-          className={`quiz-tab ${activeTab === 'students' ? 'quiz-tab--active' : ''}`}
-          onClick={() => setActiveTab('students')}
-        >
-          Student Results
-          {submissions.length > 0 && <span className="quiz-tab-badge">{submissions.length}</span>}
+        <button className={`quiz-tab ${activeTab === 'students' ? 'quiz-tab--active' : ''}`} onClick={() => setActiveTab('students')}>
+          Student Results {submissions.length > 0 && <span className="quiz-tab-badge">{submissions.length}</span>}
         </button>
       </div>
 
@@ -303,46 +184,62 @@ export default function AssignmentEditor({ unit, students = [] }) {
           {error && <div className="alert alert-error">{error}</div>}
           {saved && <div className="alert alert-success">Assignment saved successfully.</div>}
 
-          {/* Toolbar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-            {/* AI generate */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button className="btn btn-primary" onClick={handleGenerate} disabled={generating || saving}>
                 {generating ? <><LoadingSpinner size="sm" /> Generating…</> : '✨ Generate with AI'}
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="number" min={1} max={6} value={genSources}
-                  onChange={e => setGenSources(Number(e.target.value))}
-                  style={{ width: 48, padding: '8px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13 }}
-                  title="Number of sources"
-                />
+                <input type="number" min={1} max={6} value={genSources} onChange={e => setGenSources(Number(e.target.value))}
+                  style={{ width: 48, padding: '8px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13 }} title="Number of sources" />
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>sources</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="number" min={1} max={20} value={genQuestions}
-                  onChange={e => setGenQuestions(Number(e.target.value))}
-                  style={{ width: 48, padding: '8px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13 }}
-                  title="Number of questions"
-                />
+                <input type="number" min={1} max={20} value={genQuestions} onChange={e => setGenQuestions(Number(e.target.value))}
+                  style={{ width: 48, padding: '8px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13 }} title="Number of questions" />
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>questions</span>
               </div>
             </div>
-
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Due Date</span>
-                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-                  style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13 }} />
+                <AppDatePicker value={dueDate} onChange={val => setDueDate(val)} />
               </div>
               <button className="btn btn-ghost" onClick={openAddSource}>+ Source</button>
               <button className="btn btn-ghost" onClick={openAddQuestion}>+ Question</button>
-              <button className="btn btn-dark" onClick={handleSave} disabled={saving || generating}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
+              <button className="btn btn-dark" onClick={handleSave} disabled={saving || generating}>{saving ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
+
+          {/* Essay Guide toggle — only when there are essay questions */}
+          {hasEssayQuestions && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 14px', marginBottom: 16,
+              background: essayGuideEnabled ? '#fef3cd' : 'var(--cream)',
+              border: `1px solid ${essayGuideEnabled ? '#f0c040' : 'var(--border)'}`,
+              borderRadius: 6,
+            }}>
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>✍️ Essay Guide</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
+                  {essayGuideEnabled ? 'Students can open the AI essay planning guide on essay questions' : 'Essay guide is hidden from students'}
+                </span>
+              </div>
+              <button
+                onClick={() => setEssayGuideEnabled(v => !v)}
+                style={{
+                  padding: '5px 14px', borderRadius: 4, fontSize: 12, fontWeight: 600,
+                  border: '1px solid var(--border)', cursor: 'pointer',
+                  background: essayGuideEnabled ? 'var(--rust)' : '#fff',
+                  color: essayGuideEnabled ? '#fff' : 'var(--muted)',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                {essayGuideEnabled ? 'Enabled' : 'Disabled'}
+              </button>
+            </div>
+          )}
 
           {sources.length === 0 && questions.length === 0 ? (
             <div className="empty-state">
@@ -352,30 +249,19 @@ export default function AssignmentEditor({ unit, students = [] }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-              {/* Sources */}
               {sources.length > 0 && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <h3 className="assignment-section-heading">
-                      Sources
-                      <span className="assignment-section-count">{sources.length}</span>
-                    </h3>
-                    <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }} onClick={openAddSource}>
-                      + Add
-                    </button>
+                    <h3 className="assignment-section-heading">Sources<span className="assignment-section-count">{sources.length}</span></h3>
+                    <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }} onClick={openAddSource}>+ Add</button>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {sources.map((s, i) => (
                       <div key={i} className="assignment-source-card">
                         <div className="assignment-source-header">
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                            <span className={`assignment-source-badge assignment-source-badge--${s.source_type}`}>
-                              {s.source_type === 'primary' ? 'Primary' : 'Secondary'}
-                            </span>
-                            {s.format === 'ai_generated' && (
-                              <span className="assignment-source-badge assignment-source-badge--ai">AI</span>
-                            )}
+                            <span className={`assignment-source-badge assignment-source-badge--${s.source_type}`}>{s.source_type === 'primary' ? 'Primary' : 'Secondary'}</span>
+                            {s.format === 'ai_generated' && <span className="assignment-source-badge assignment-source-badge--ai">AI</span>}
                             <span className="assignment-source-title">{s.title}</span>
                           </div>
                           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -390,17 +276,11 @@ export default function AssignmentEditor({ unit, students = [] }) {
                 </div>
               )}
 
-              {/* Questions */}
               {questions.length > 0 && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <h3 className="assignment-section-heading">
-                      Questions
-                      <span className="assignment-section-count">{questions.length}</span>
-                    </h3>
-                    <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }} onClick={openAddQuestion}>
-                      + Add
-                    </button>
+                    <h3 className="assignment-section-heading">Questions<span className="assignment-section-count">{questions.length}</span></h3>
+                    <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }} onClick={openAddQuestion}>+ Add</button>
                   </div>
                   <div className="quiz-question-list">
                     {questions.map((q, i) => (
@@ -413,27 +293,20 @@ export default function AssignmentEditor({ unit, students = [] }) {
                             <button className="btn btn-danger" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => removeQuestion(i)}>Remove</button>
                           </div>
                         </div>
-                        <div
-                          className="quiz-question-text quiz-question-text--markdown"
-                          dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }}
-                        />
+                        <div className="quiz-question-text quiz-question-text--markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
                         {q.type === 'multiple_choice' && q.options && (
                           <div className="quiz-question-options">
                             {q.options.map((opt, oi) => (
                               <div key={oi} className={`quiz-option ${opt === q.correct_answer ? 'quiz-option--correct' : ''}`}>
-                                <span className="quiz-option-bullet">{opt === q.correct_answer ? '✓' : '○'}</span>
-                                {opt}
+                                <span className="quiz-option-bullet">{opt === q.correct_answer ? '✓' : '○'}</span>{opt}
                               </div>
                             ))}
                           </div>
                         )}
-                        {q.type === 'short_answer' && (
-                          <div className="quiz-question-answer">Model answer: {q.correct_answer}</div>
-                        )}
+                        {q.type === 'short_answer' && <div className="quiz-question-answer">Model answer: {q.correct_answer}</div>}
                         {q.type === 'essay' && (
                           <div className="quiz-question-essay-prompt">
-                            <span className="quiz-question-essay-prompt-label">Grading prompt:</span>
-                            {q.correct_answer}
+                            <span className="quiz-question-essay-prompt-label">Grading prompt:</span>{q.correct_answer}
                           </div>
                         )}
                       </div>
@@ -457,14 +330,12 @@ export default function AssignmentEditor({ unit, students = [] }) {
             <div className="empty-state"><div className="empty-state-icon"></div><h3>No submissions yet</h3><p>Students haven't submitted yet.</p></div>
           ) : (
             <div className="quiz-results-layout">
-              {/* Student list */}
               <div className="quiz-results-list">
                 <div className="quiz-results-list-header">{submissions.length} submission{submissions.length !== 1 ? 's' : ''}</div>
                 {submissions.map(sub => (
                   <button key={sub.id}
                     className={`quiz-results-student-row ${selectedSubmission?.id === sub.id ? 'quiz-results-student-row--active' : ''}`}
-                    onClick={() => setSelectedSubmission(sub)}
-                  >
+                    onClick={() => setSelectedSubmission(sub)}>
                     <div className="quiz-results-student-name">{sub.profiles?.display_name || 'Unknown Student'}</div>
                     <div className="quiz-results-student-score" style={{ color: scoreColor(sub.score), background: scoreBg(sub.score) }}>
                       {sub.score !== null ? `${sub.score}%` : '—'}
@@ -473,7 +344,6 @@ export default function AssignmentEditor({ unit, students = [] }) {
                 ))}
               </div>
 
-              {/* Detail */}
               <div className="quiz-results-detail">
                 {!selectedSubmission ? (
                   <div className="quiz-results-empty"><p style={{ color: 'var(--muted)', fontSize: 14 }}>Select a student to view their results</p></div>
@@ -492,7 +362,6 @@ export default function AssignmentEditor({ unit, students = [] }) {
                     </div>
 
                     <div className="divider" style={{ margin: '16px 0' }} />
-
                     <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, marginBottom: 14, color: 'var(--ink)' }}>Full Submission</h3>
 
                     {questions.map((q, i) => {
@@ -507,37 +376,17 @@ export default function AssignmentEditor({ unit, students = [] }) {
                         <div key={q.id || i} className="quiz-results-question-item">
                           <div className="quiz-results-question-meta">
                             <span>Q{i + 1} · {typeLabel(q.type)}</span>
-                            {isMC && (
-                              <span style={{ fontSize: 11, fontWeight: 600, color: isCorrect ? '#2a7a2a' : '#c0392b' }}>
-                                {isCorrect ? '✓ Correct' : '✗ Incorrect'}
-                              </span>
-                            )}
-                            {!isMC && !isEssay && saResult?.score !== null && saResult?.score !== undefined && (
-                              <span style={{ fontSize: 12, fontWeight: 600, color: scoreColor(saResult.score) }}>{saResult.score}%</span>
-                            )}
-                            {isEssay && essayResult?.score !== null && essayResult?.score !== undefined && (
-                              <span style={{ fontSize: 12, fontWeight: 600, color: scoreColor(essayResult.score) }}>{essayResult.score}%</span>
-                            )}
+                            {isMC && <span style={{ fontSize: 11, fontWeight: 600, color: isCorrect ? '#2a7a2a' : '#c0392b' }}>{isCorrect ? '✓ Correct' : '✗ Incorrect'}</span>}
+                            {!isMC && !isEssay && saResult?.score !== null && saResult?.score !== undefined && <span style={{ fontSize: 12, fontWeight: 600, color: scoreColor(saResult.score) }}>{saResult.score}%</span>}
+                            {isEssay && essayResult?.score !== null && essayResult?.score !== undefined && <span style={{ fontSize: 12, fontWeight: 600, color: scoreColor(essayResult.score) }}>{essayResult.score}%</span>}
                           </div>
-                          <div
-                            className="quiz-question-text quiz-question-text--markdown"
-                            style={{ fontSize: 14, marginBottom: 8 }}
-                            dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }}
-                          />
+                          <div className="quiz-question-text quiz-question-text--markdown" style={{ fontSize: 14, marginBottom: 8 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--cream)', padding: '6px 10px', borderRadius: 4 }}>
                               <strong>Student:</strong> {studentAnswer?.answer || '—'}
                             </div>
-                            {isMC && !isCorrect && (
-                              <div style={{ fontSize: 12, color: '#2a7a2a', background: '#eaf6ea', padding: '6px 10px', borderRadius: 4 }}>
-                                <strong>Correct:</strong> {q.correct_answer}
-                              </div>
-                            )}
-                            {!isMC && !isEssay && saResult?.feedback && (
-                              <div style={{ fontSize: 12, color: 'var(--ink)', padding: '6px 10px', background: '#fff', border: '1px solid var(--border)', borderLeft: `3px solid ${scoreColor(saResult.score ?? 0)}`, borderRadius: '0 4px 4px 0', lineHeight: 1.6 }}>
-                                💬 {saResult.feedback}
-                              </div>
-                            )}
+                            {isMC && !isCorrect && <div style={{ fontSize: 12, color: '#2a7a2a', background: '#eaf6ea', padding: '6px 10px', borderRadius: 4 }}><strong>Correct:</strong> {q.correct_answer}</div>}
+                            {!isMC && !isEssay && saResult?.feedback && <div style={{ fontSize: 12, color: 'var(--ink)', padding: '6px 10px', background: '#fff', border: '1px solid var(--border)', borderLeft: `3px solid ${scoreColor(saResult.score ?? 0)}`, borderRadius: '0 4px 4px 0', lineHeight: 1.6 }}>💬 {saResult.feedback}</div>}
                             {isEssay && essayResult && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                 {essayResult.breakdown && (
@@ -545,18 +394,12 @@ export default function AssignmentEditor({ unit, students = [] }) {
                                     {Object.entries(essayResult.breakdown).map(([key, val]) => (
                                       <div key={key} className="essay-breakdown-cell">
                                         <div className="essay-breakdown-label">{key}</div>
-                                        <div className="essay-breakdown-score" style={{ color: scoreColor(val * 4) }}>
-                                          {val}<span className="essay-breakdown-denom">/25</span>
-                                        </div>
+                                        <div className="essay-breakdown-score" style={{ color: scoreColor(val * 4) }}>{val}<span className="essay-breakdown-denom">/25</span></div>
                                       </div>
                                     ))}
                                   </div>
                                 )}
-                                {essayResult.feedback && (
-                                  <div style={{ fontSize: 12, color: 'var(--ink)', padding: '8px 12px', background: '#fff', border: '1px solid var(--border)', borderLeft: `3px solid ${scoreColor(essayResult.score ?? 0)}`, borderRadius: '0 4px 4px 0', lineHeight: 1.6 }}>
-                                    💬 {essayResult.feedback}
-                                  </div>
-                                )}
+                                {essayResult.feedback && <div style={{ fontSize: 12, color: 'var(--ink)', padding: '8px 12px', background: '#fff', border: '1px solid var(--border)', borderLeft: `3px solid ${scoreColor(essayResult.score ?? 0)}`, borderRadius: '0 4px 4px 0', lineHeight: 1.6 }}>💬 {essayResult.feedback}</div>}
                               </div>
                             )}
                           </div>
@@ -571,22 +414,10 @@ export default function AssignmentEditor({ unit, students = [] }) {
         </>
       )}
 
-      {/* ── Add / Edit Source Modal ── */}
-      <Modal
-        isOpen={sourceModal}
-        onClose={() => setSourceModal(false)}
-        title={editSourceIdx !== null ? 'Edit Source' : 'Add Source'}
-        size="lg"
-        footer={
-          <ModalActions
-            onCancel={() => setSourceModal(false)}
-            onConfirm={handleSourceSubmit}
-            confirmLabel={editSourceIdx !== null ? 'Save' : 'Add'}
-          />
-        }
-      >
+      {/* Source Modal */}
+      <Modal isOpen={sourceModal} onClose={() => setSourceModal(false)} title={editSourceIdx !== null ? 'Edit Source' : 'Add Source'} size="lg"
+        footer={<ModalActions onCancel={() => setSourceModal(false)} onConfirm={handleSourceSubmit} confirmLabel={editSourceIdx !== null ? 'Save' : 'Add'} />}>
         {sourceFormError && <div className="alert alert-error">{sourceFormError}</div>}
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 4 }}>
           <div className="field" style={{ margin: 0 }}>
             <label>Source Type</label>
@@ -603,46 +434,20 @@ export default function AssignmentEditor({ unit, students = [] }) {
             </select>
           </div>
         </div>
-
         <div className="field">
           <label>Title</label>
-          <input
-            type="text"
-            value={sourceForm.title}
-            onChange={e => setSourceForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="e.g. Letter from Abraham Lincoln to Horace Greeley, 1862"
-            autoFocus
-          />
+          <input type="text" value={sourceForm.title} onChange={e => setSourceForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Letter from Abraham Lincoln to Horace Greeley, 1862" autoFocus />
         </div>
-
         <div className="field">
           <label>Content</label>
-          <textarea
-            rows={10}
-            value={sourceForm.content}
-            onChange={e => setSourceForm(f => ({ ...f, content: e.target.value }))}
-            placeholder="Paste or type the full text of the document or reading…"
-            style={{ fontFamily: 'var(--font-body)', lineHeight: 1.7 }}
-          />
+          <textarea rows={10} value={sourceForm.content} onChange={e => setSourceForm(f => ({ ...f, content: e.target.value }))} placeholder="Paste or type the full text of the document or reading…" style={{ fontFamily: 'var(--font-body)', lineHeight: 1.7 }} />
         </div>
       </Modal>
 
-      {/* ── Add / Edit Question Modal ── */}
-      <Modal
-        isOpen={questionModal}
-        onClose={() => setQuestionModal(false)}
-        title={editQuestionIdx !== null ? 'Edit Question' : 'Add Question'}
-        size="md"
-        footer={
-          <ModalActions
-            onCancel={() => setQuestionModal(false)}
-            onConfirm={handleQuestionSubmit}
-            confirmLabel={editQuestionIdx !== null ? 'Save' : 'Add'}
-          />
-        }
-      >
+      {/* Question Modal */}
+      <Modal isOpen={questionModal} onClose={() => setQuestionModal(false)} title={editQuestionIdx !== null ? 'Edit Question' : 'Add Question'} size="md"
+        footer={<ModalActions onCancel={() => setQuestionModal(false)} onConfirm={handleQuestionSubmit} confirmLabel={editQuestionIdx !== null ? 'Save' : 'Add'} />}>
         {qFormError && <div className="alert alert-error">{qFormError}</div>}
-
         <div className="field">
           <label>Question Type</label>
           <select value={qForm.type} onChange={e => setQForm(f => ({ ...f, type: e.target.value, correct_answer: '' }))}>
@@ -651,14 +456,10 @@ export default function AssignmentEditor({ unit, students = [] }) {
             <option value="essay">Essay</option>
           </select>
         </div>
-
         <div className="field">
           <label>Question Text</label>
-          <textarea rows={3} value={qForm.question_text}
-            onChange={e => setQForm(f => ({ ...f, question_text: e.target.value }))}
-            placeholder="Enter your question…" autoFocus />
+          <textarea rows={3} value={qForm.question_text} onChange={e => setQForm(f => ({ ...f, question_text: e.target.value }))} placeholder="Enter your question…" autoFocus />
         </div>
-
         {qForm.type === 'multiple_choice' && (
           <div className="field">
             <label>Answer Options</label>
@@ -669,7 +470,6 @@ export default function AssignmentEditor({ unit, students = [] }) {
             ))}
           </div>
         )}
-
         <div className="field">
           {qForm.type === 'multiple_choice' && (
             <>
@@ -683,20 +483,15 @@ export default function AssignmentEditor({ unit, students = [] }) {
           {qForm.type === 'short_answer' && (
             <>
               <label>Model Answer</label>
-              <input type="text" value={qForm.correct_answer}
-                onChange={e => setQForm(f => ({ ...f, correct_answer: e.target.value }))}
-                placeholder="Model answer for this question…" />
+              <input type="text" value={qForm.correct_answer} onChange={e => setQForm(f => ({ ...f, correct_answer: e.target.value }))} placeholder="Model answer for this question…" />
             </>
           )}
           {qForm.type === 'essay' && (
             <>
               <label>Grading Prompt</label>
-              <textarea rows={4} value={qForm.correct_answer}
-                onChange={e => setQForm(f => ({ ...f, correct_answer: e.target.value }))}
+              <textarea rows={4} value={qForm.correct_answer} onChange={e => setQForm(f => ({ ...f, correct_answer: e.target.value }))}
                 placeholder="Describe what a strong response should include — thesis, evidence to cite from the sources, analysis depth, whether a counterclaim is required…" />
-              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
-                Not shown to students. Used by the AI grader.
-              </p>
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>Not shown to students. Used by the AI grader.</p>
             </>
           )}
         </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AppDatePicker from '../../components/AppDatePicker';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
@@ -15,7 +16,7 @@ import './Teacher.css';
 const TABS = [
   { key: 'notes',      label: 'Notes' },
   { key: 'personas',   label: 'Personas' },
-  { key: 'quiz',       label: 'Quiz' },
+  { key: 'quiz',       label: 'Quizzes' },
   { key: 'assignment', label: 'Assignment' },
 ];
 
@@ -34,6 +35,19 @@ export default function UnitEditor({ user }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchAll(); }, [unitId]);
+  useEffect(() => {
+    localStorage.setItem('epoch_last_teacher_classroom_id', classroomId);
+  }, [classroomId]);
+  useEffect(() => {
+    function handleUnitsChanged() { fetchAll(); }
+    function handleClassroomsChanged() { fetchAll(); }
+    window.addEventListener('epoch:units-changed', handleUnitsChanged);
+    window.addEventListener('epoch:classrooms-changed', handleClassroomsChanged);
+    return () => {
+      window.removeEventListener('epoch:units-changed', handleUnitsChanged);
+      window.removeEventListener('epoch:classrooms-changed', handleClassroomsChanged);
+    };
+  }, [unitId, classroomId]);
 
   async function fetchAll() {
     setLoading(true);
@@ -63,6 +77,7 @@ export default function UnitEditor({ user }) {
         due_date: editForm.due_date || null,
       });
       setUnit(updated);
+      window.dispatchEvent(new CustomEvent('epoch:units-changed'));
       setEditing(false);
     } catch { /* silent */ } finally {
       setSaving(false);
@@ -73,6 +88,7 @@ export default function UnitEditor({ user }) {
     try {
       const { unit: updated } = await updateUnit(unitId, { is_visible: !unit.is_visible });
       setUnit(updated);
+      window.dispatchEvent(new CustomEvent('epoch:units-changed'));
     } catch { /* silent */ }
   }
 
@@ -108,8 +124,7 @@ export default function UnitEditor({ user }) {
                 </div>
                 <div className="field">
                   <label>Due Date</label>
-                  <input type="date" value={editForm.due_date}
-                    onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))} />
+                  <AppDatePicker value={editForm.due_date} onChange={val => setEditForm(f => ({ ...f, due_date: val }))} />
                 </div>
               </div>
               <div className="field">

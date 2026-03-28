@@ -1,0 +1,26 @@
+body.epoch-density-compact .page-main,
+body.epoch-density-compact .modal-body {
+  font-size: 0.96rem;
+}
+
+body.epoch-density-compact .cards-grid {
+  gap: 14px;
+}
+
+body.epoch-density-expanded .cards-grid {
+  gap: 24px;
+}
+
+body.epoch-density-expanded .panel,
+body.epoch-density-expanded .empty-state {
+  padding: 28px;
+}
+
+body.epoch-reduce-motion *,
+body.epoch-reduce-motion *::before,
+body.epoch-reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

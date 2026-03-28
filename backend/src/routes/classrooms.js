@@ -20,7 +20,25 @@ router.get('/', authenticate, async (req, res, next) => {
         .eq('teacher_id', req.user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return res.json({ classrooms: data });
+      const classroomsWithStats = await Promise.all((data || []).map(async classroom => {
+        const [{ count: student_count }, { data: units }] = await Promise.all([
+          supabase.from('classroom_students')
+            .select('*', { count: 'exact', head: true })
+            .eq('classroom_id', classroom.id),
+          supabase.from('units')
+            .select('id, is_visible')
+            .eq('classroom_id', classroom.id),
+        ]);
+
+        return {
+          ...classroom,
+          student_count: student_count || 0,
+          unit_count: units?.length || 0,
+          visible_unit_count: (units || []).filter(unit => unit.is_visible).length,
+        };
+      }));
+
+      return res.json({ classrooms: classroomsWithStats });
     }
     const { data, error } = await supabase
       .from('classroom_students')
@@ -140,18 +158,18 @@ router.delete('/:id/students/:studentId', authenticate, requireRole('teacher'), 
 async function buildStudentPerformance(units, studentId) {
   const unitSummaries = await Promise.all(
     units.map(async (unit) => {
-      const { data: quiz } = await supabase
-        .from('quizzes').select('id').eq('unit_id', unit.id).single();
+      const { data: quizzes } = await supabase
+        .from('quizzes').select('id').eq('unit_id', unit.id).order('created_at', { ascending: true });
 
       const { data: assignment } = await supabase
         .from('assignments').select('id').eq('unit_id', unit.id).single();
 
-      const [quizSub, assignmentSub] = await Promise.all([
-        quiz
+      const [quizSubs, assignmentSub] = await Promise.all([
+        quizzes?.length
           ? supabase.from('quiz_submissions').select('score, submitted_at, answers, sa_feedback, essay_feedback, mc_results')
-              .eq('quiz_id', quiz.id).eq('student_id', studentId).single()
-              .then(r => r.data || null)
-          : Promise.resolve(null),
+              .in('quiz_id', quizzes.map(quiz => quiz.id)).eq('student_id', studentId)
+              .then(r => r.data || [])
+          : Promise.resolve([]),
         assignment
           ? supabase.from('assignment_submissions').select('score, submitted_at, answers, sa_feedback, essay_feedback, mc_results')
               .eq('assignment_id', assignment.id).eq('student_id', studentId).single()
@@ -159,17 +177,29 @@ async function buildStudentPerformance(units, studentId) {
           : Promise.resolve(null),
       ]);
 
+      const quizScores = (quizSubs || [])
+        .map(submission => submission.score)
+        .filter(score => score !== null && score !== undefined);
+      const latestQuizSubmission = (quizSubs || []).reduce((latest, submission) => {
+        if (!latest) return submission;
+        const latestDate = latest.submitted_at || '';
+        const nextDate = submission.submitted_at || '';
+        return nextDate > latestDate ? submission : latest;
+      }, null);
+
       return {
         unit_id:    unit.id,
         unit_title: unit.title,
-        quiz: quizSub ? {
-          score:          quizSub.score,
-          submitted_at:   quizSub.submitted_at,
-          has_essay:      Array.isArray(quizSub.essay_feedback) && quizSub.essay_feedback.length > 0,
-          essay_feedback: quizSub.essay_feedback || null,
-          sa_feedback:    quizSub.sa_feedback    || null,
-          mc_results:     quizSub.mc_results     || null,
-          answers:        quizSub.answers        || [],
+        quiz: latestQuizSubmission ? {
+          score:          quizScores.length ? Math.round(quizScores.reduce((sum, score) => sum + score, 0) / quizScores.length) : null,
+          submitted_at:   latestQuizSubmission.submitted_at,
+          has_essay:      (quizSubs || []).some(submission => Array.isArray(submission.essay_feedback) && submission.essay_feedback.length > 0),
+          essay_feedback: latestQuizSubmission.essay_feedback || null,
+          sa_feedback:    latestQuizSubmission.sa_feedback    || null,
+          mc_results:     latestQuizSubmission.mc_results     || null,
+          answers:        latestQuizSubmission.answers        || [],
+          submitted_count: quizSubs.length,
+          quiz_count: quizzes?.length || 0,
         } : null,
         assignment: assignmentSub ? {
           score:          assignmentSub.score,
