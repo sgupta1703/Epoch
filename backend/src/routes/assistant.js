@@ -2,10 +2,70 @@ const express = require('express');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
 const supabase = require('../services/supabaseClient');
-const { chatWithEpochAssistant } = require('../services/claude');
-const { getUserSettings, buildTeacherAiInstruction } = require('../services/userSettings');
+const { chatWithEpochAssistant, evaluateEssayOutline, chatWithEssayGuide } = require('../services/claude');
+const { getUserSettings, buildTeacherAiInstruction, buildStudentAiInstruction } = require('../services/userSettings');
 
 const router = express.Router();
+
+function buildAiInstructionForUser(role, settings) {
+  return role === 'teacher'
+    ? buildTeacherAiInstruction(settings)
+    : buildStudentAiInstruction(settings);
+}
+
+router.post('/essay-guide/evaluate', authenticate, async (req, res, next) => {
+  try {
+    const { question, outline } = req.body;
+
+    if (!question?.trim()) {
+      return res.status(400).json({ error: 'question is required' });
+    }
+
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const result = await evaluateEssayOutline(
+      question.trim(),
+      outline || {},
+      buildAiInstructionForUser(req.user.role, settings),
+    );
+    res.json({ feedback: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/essay-guide/chat', authenticate, async (req, res, next) => {
+  try {
+    const { question, essayDraft, messages } = req.body;
+
+    if (!question?.trim()) {
+      return res.status(400).json({ error: 'question is required' });
+    }
+
+    const cleanedMessages = Array.isArray(messages)
+      ? messages
+          .filter((message) => typeof message?.content === 'string' && message.content.trim())
+          .map((message) => ({
+            role: message.role === 'assistant' ? 'assistant' : 'user',
+            content: message.content.trim(),
+          }))
+      : [];
+
+    if (cleanedMessages.length === 0) {
+      return res.status(400).json({ error: 'messages is required' });
+    }
+
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const reply = await chatWithEssayGuide(
+      question.trim(),
+      essayDraft || '',
+      cleanedMessages,
+      buildAiInstructionForUser(req.user.role, settings),
+    );
+    res.json({ reply });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // POST /api/assistant/chat
 router.post('/chat', authenticate, requireRole('teacher'), async (req, res, next) => {

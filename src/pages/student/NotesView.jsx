@@ -9,12 +9,13 @@ import './Student.css';
 
 // ─── Section definitions ───────────────────────────────────────────────────
 const SECTION_DEFINITIONS = [
-  { title: 'Overview',              aliases: ['overview'] },
-  { title: 'Historical Background', aliases: ['historical background', 'background'] },
-  { title: 'Key Figures',           aliases: ['key figures', 'important figures', 'major figures'] },
-  { title: 'Timeline of Events',    aliases: ['timeline of events', 'timeline', 'events timeline'] },
-  { title: 'Causes & Effects',      aliases: ['causes & effects', 'causes and effects', 'causes', 'effects'] },
-  { title: 'Significance & Legacy', aliases: ['significance & legacy', 'significance and legacy', 'legacy', 'significance'] },
+  { title: 'Overview',                  aliases: ['overview'] },
+  { title: 'Historical Background',     aliases: ['historical background', 'background'] },
+  { title: 'Key Figures',               aliases: ['key figures', 'important figures', 'major figures'] },
+  { title: 'Timeline of Events',        aliases: ['timeline of events', 'timeline', 'events timeline'] },
+  { title: 'Causes & Effects',          aliases: ['causes & effects', 'causes and effects', 'causes', 'effects'] },
+  { title: 'Key Concepts & Vocabulary', aliases: ['key concepts & vocabulary', 'key concepts and vocabulary', 'key concepts', 'vocabulary', 'key terms', 'glossary'] },
+  { title: 'Significance & Legacy',     aliases: ['significance & legacy', 'significance and legacy', 'legacy', 'significance'] },
 ];
 
 // ─── Markdown parser ───────────────────────────────────────────────────────
@@ -163,7 +164,7 @@ export default function NotesView({ user }) {
   async function fetchAll() {
     setLoading(true); setError('');
     try {
-      const [{ notes }, { files }] = await Promise.all([getNotes(unitId), getFiles(unitId)]);
+      const [{ notes }, { files }] = await Promise.all([getNotes(unitId), getFiles(unitId, 'notes_attachment')]);
       setNotes(notes || null);
       setFiles(files || []);
     } catch {

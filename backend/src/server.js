@@ -13,6 +13,8 @@ const assignmentRoutes  = require('./routes/assignments');
 const timelineRoutes    = require('./routes/timeline');
 const assistantRoutes   = require('./routes/assistant');
 const settingsRoutes    = require('./routes/settings');
+const studentRoutes     = require('./routes/student');
+const profileRoutes     = require('./routes/profile');
 
 const app = express();
 
@@ -70,6 +72,8 @@ app.use('/api/units',      fileRoutes);
 app.use('/api/units',      assignmentRoutes);
 app.use('/api/assistant',  assistantRoutes);
 app.use('/api/settings',   settingsRoutes);
+app.use('/api/student',    studentRoutes);
+app.use('/api/profile',    profileRoutes);
 
 app.get('/api/health', (req, res) => {
   console.log('[health] ok');
@@ -98,5 +102,5 @@ app.listen(PORT, () => {
   console.log(`[startup] Server running on port ${PORT}`);
   console.log(`[startup] SUPABASE_URL set:        ${!!process.env.SUPABASE_URL}`);
   console.log(`[startup] SERVICE_ROLE_KEY set:    ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`);
-  console.log(`[startup] ANTHROPIC_API_KEY set:   ${!!process.env.ANTHROPIC_API_KEY}`);
+  console.log(`[startup] OPENAI_API_KEY set:      ${!!process.env.OPENAI_API_KEY}`);
 });

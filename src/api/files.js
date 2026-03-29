@@ -1,13 +1,16 @@
 import api from './axiosInstance';
 
-export async function getFiles(unitId) {
-  const { data } = await api.get(`/api/units/${unitId}/files`);
+export async function getFiles(unitId, scope) {
+  const { data } = await api.get(`/api/units/${unitId}/files`, {
+    params: scope ? { scope } : undefined,
+  });
   return data;
 }
 
-export async function uploadFile(unitId, file, onProgress) {
+export async function uploadFile(unitId, file, onProgress, scope = 'notes_attachment') {
   const formData = new FormData();
   formData.append('file', file);
+  if (scope) formData.append('scope', scope);
   const { data } = await api.post(`/api/units/${unitId}/files`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: e => {

@@ -128,9 +128,6 @@ export default function TeacherDashboard({ user }) {
             <div className="page-header-left">
               <p className="page-eyebrow">Educator Portal</p>
               <h1 className="page-title">My Courses</h1>
-              <p className="page-subtitle">
-                Manage your courses and create units for your students.
-              </p>
             </div>
             <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
               + New Course
@@ -150,49 +147,86 @@ export default function TeacherDashboard({ user }) {
               </button>
             </div>
           ) : (
-            <div className="cards-grid">
-              {classrooms.map(c => (
-                <div key={c.id} className="classroom-card" onClick={() => navigate(`/teacher/classroom/${c.id}`)}>
-                  <div className="classroom-card-top">
-                    <h2 className="classroom-card-name">{c.name}</h2>
-                    <span className="classroom-card-code">{c.join_code}</span>
-                  </div>
-                  <p className="classroom-card-meta">
-                    Created {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                  {settings.show_course_stats && (
-                    <div className="classroom-card-stats">
-                      <div className="classroom-card-stat">
-                        <span className="classroom-card-stat-label">Students</span>
-                        <strong className="classroom-card-stat-value">{c.student_count ?? 0}</strong>
+            <>
+              {/* Summary bar */}
+              <div className="dashboard-summary-bar">
+                <div className="dashboard-summary-item">
+                  <span className="dashboard-summary-value">{classrooms.length}</span>
+                  <span className="dashboard-summary-label">Course{classrooms.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="dashboard-summary-divider" />
+                <div className="dashboard-summary-item">
+                  <span className="dashboard-summary-value">{classrooms.reduce((s, c) => s + (c.student_count ?? 0), 0)}</span>
+                  <span className="dashboard-summary-label">Total Students</span>
+                </div>
+                <div className="dashboard-summary-divider" />
+                <div className="dashboard-summary-item">
+                  <span className="dashboard-summary-value">{classrooms.reduce((s, c) => s + (c.unit_count ?? 0), 0)}</span>
+                  <span className="dashboard-summary-label">Total Units</span>
+                </div>
+                <div className="dashboard-summary-divider" />
+                <div className="dashboard-summary-item">
+                  <span className="dashboard-summary-value">{classrooms.reduce((s, c) => s + (c.visible_unit_count ?? 0), 0)}</span>
+                  <span className="dashboard-summary-label">Published</span>
+                </div>
+              </div>
+
+              <div className="cards-grid">
+                {classrooms.map((c, idx) => (
+                  <div key={c.id} className="classroom-card" onClick={() => navigate(`/teacher/classroom/${c.id}`)}>
+                    <div className={`classroom-card-accent classroom-card-accent--${idx % 5}`} />
+
+                    <div className="classroom-card-top">
+                      <h2 className="classroom-card-name">{c.name}</h2>
+                    </div>
+
+                    <div className="classroom-card-join-row">
+                      <span className="classroom-card-join-label">Join code</span>
+                      <span className="classroom-card-code">{c.join_code}</span>
+                    </div>
+
+                    {settings.show_course_stats && (
+                      <div className="classroom-card-stats">
+                        <div className="classroom-card-stat">
+                          <strong className="classroom-card-stat-value">{c.student_count ?? 0}</strong>
+                          <span className="classroom-card-stat-label">Students</span>
+                        </div>
+                        <div className="classroom-card-stat">
+                          <strong className="classroom-card-stat-value">{c.unit_count ?? 0}</strong>
+                          <span className="classroom-card-stat-label">Units</span>
+                        </div>
+                        <div className="classroom-card-stat">
+                          <strong className="classroom-card-stat-value">{c.visible_unit_count ?? 0}</strong>
+                          <span className="classroom-card-stat-label">Published</span>
+                        </div>
                       </div>
-                      <div className="classroom-card-stat">
-                        <span className="classroom-card-stat-label">Units</span>
-                        <strong className="classroom-card-stat-value">{c.unit_count ?? 0}</strong>
-                      </div>
-                      <div className="classroom-card-stat">
-                        <span className="classroom-card-stat-label">Visible</span>
-                        <strong className="classroom-card-stat-value">{c.visible_unit_count ?? 0}</strong>
+                    )}
+
+                    <div className="classroom-card-footer">
+                      <span className="classroom-card-meta">
+                        Created {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          className="btn btn-ghost"
+                          style={{ fontSize: 12, padding: '5px 12px' }}
+                          onClick={e => { e.stopPropagation(); setDeleteTarget(c); }}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          className="btn btn-dark"
+                          style={{ fontSize: 13 }}
+                          onClick={e => { e.stopPropagation(); navigate(`/teacher/classroom/${c.id}`); }}
+                        >
+                          Open →
+                        </button>
                       </div>
                     </div>
-                  )}
-                  <div className="classroom-card-footer">
-                    <button
-                      className="btn btn-dark"
-                      onClick={e => { e.stopPropagation(); navigate(`/teacher/classroom/${c.id}`); }}
-                    >
-                      Open →
-                    </button>
-                    <button
-                      className="btn btn-ghost"
-                      onClick={e => { e.stopPropagation(); setDeleteTarget(c); }}
-                    >
-                      Delete
-                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </main>
       </div>

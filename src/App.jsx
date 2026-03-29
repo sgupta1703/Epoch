@@ -7,6 +7,8 @@ import SettingsEffects from './components/SettingsEffects';
 
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 import Landing from './Landing';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ClassroomView from './pages/teacher/ClassroomView';
@@ -14,10 +16,7 @@ import UnitEditor from './pages/teacher/UnitEditor';
 import StudentDashboard from './pages/student/StudentDashboard';
 import StudentClassroom from './pages/student/StudentClassroom';
 import StudentUnit from './pages/student/StudentUnit';
-import NotesView from './pages/student/NotesView';
-import PersonaChat from './pages/student/PersonaChat';
-import QuizView from './pages/student/QuizView';
-import AssignmentView from './pages/student/AssignmentView';
+import StudentProfile from './pages/student/StudentProfile';
 import SettingsPage from './pages/settings/SettingsPage';
 
 function RequireAuth() {
@@ -61,7 +60,10 @@ function AppRoutes() {
         <Route element={<RedirectIfAuthed />}>
           <Route path="/login" element={<Login onLogin={setUser} />} />
           <Route path="/register" element={<Register onLogin={setUser} />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
         </Route>
+
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route element={<RequireAuth />}>
           <Route element={<RequireRole role="teacher" />}>
@@ -74,12 +76,13 @@ function AppRoutes() {
           <Route element={<RequireRole role="student" />}>
             <Route path="/student" element={<StudentDashboard user={user} />} />
             <Route path="/student/settings" element={<SettingsPage user={user} role="student" />} />
+            <Route path="/student/profile" element={<StudentProfile user={user} />} />
             <Route path="/student/classroom/:classroomId" element={<StudentClassroom user={user} />} />
             <Route path="/student/classroom/:classroomId/unit/:unitId" element={<StudentUnit user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId/notes" element={<NotesView user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId/personas" element={<PersonaChat user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId/quiz" element={<QuizView user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId/assignment" element={<AssignmentView user={user} />} />
+            <Route path="/student/classroom/:classroomId/unit/:unitId/notes" element={<StudentUnit user={user} />} />
+            <Route path="/student/classroom/:classroomId/unit/:unitId/personas" element={<StudentUnit user={user} />} />
+            <Route path="/student/classroom/:classroomId/unit/:unitId/quiz" element={<StudentUnit user={user} />} />
+            <Route path="/student/classroom/:classroomId/unit/:unitId/assignment" element={<StudentUnit user={user} />} />
           </Route>
         </Route>
 

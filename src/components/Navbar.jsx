@@ -20,6 +20,7 @@ export default function Navbar({ user }) {
     // e.g. ['teacher', 'classroom', '123', 'unit', '456']
     if (parts.length <= 1) return null;
     if (parts.includes('settings')) return 'Settings';
+    if (parts.includes('profile')) return 'Profile';
     if (parts.includes('classroom') && !parts.includes('unit')) return 'Classroom';
     if (parts.includes('unit')) {
       const tab = parts[parts.length - 1];
@@ -120,6 +121,19 @@ export default function Navbar({ user }) {
                 </svg>
                 Dashboard
               </Link>
+              {!isTeacher && (
+                <Link
+                  to="/student/profile"
+                  className="navbar-dropdown-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="8" cy="5.5" r="3" />
+                    <path d="M2.5 14.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+                  </svg>
+                  Profile
+                </Link>
+              )}
               <Link
                 to={settingsPath}
                 className="navbar-dropdown-item"

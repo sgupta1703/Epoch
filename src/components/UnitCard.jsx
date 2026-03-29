@@ -1,22 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import './UnitCard.css';
 
-/**
- * UnitCard — displayed in classroom views for both teacher and student.
- *
- * Props:
- *   unit        – unit object { id, title, context, is_visible, due_date, classroom_id }
- *   role        – 'teacher' | 'student'
- *   onToggleVis – (unit) => void  — teacher: toggle visibility
- *   onDelete    – (unit) => void  — teacher: delete unit
- *   completion  – optional object { notes: bool, personas: bool, quiz: bool } for student progress
- */
-export default function UnitCard({ unit, role, onToggleVis, onDelete, completion }) {
+export default function UnitCard({ unit, role, onToggleVis, onDelete, completion, accentVariant }) {
   const navigate = useNavigate();
   const isTeacher = role === 'teacher';
-  const previewText = isTeacher
-    ? unit.context
-    : 'Open this unit to review the materials and complete the assigned activities.';
 
   const basePath = isTeacher
     ? `/teacher/classroom/${unit.classroom_id}/unit/${unit.id}`
@@ -30,24 +17,31 @@ export default function UnitCard({ unit, role, onToggleVis, onDelete, completion
   const dueDate = formatDate(unit.due_date);
   const isPastDue = unit.due_date && new Date(unit.due_date) < new Date();
 
-  // Student completion dots
   const sections = [
     { key: 'notes',    label: 'Notes' },
     { key: 'personas', label: 'Personas' },
     { key: 'quiz',     label: 'Quiz' },
   ];
 
-  return (
-    <article className={`unit-card ${!unit.is_visible ? 'unit-card--hidden' : ''}`}>
+  const accentClass = accentVariant === undefined || accentVariant === null
+    ? ''
+    : ` unit-card--accent-${accentVariant}`;
 
-      {/* Top bar */}
+  return (
+    <article className={`unit-card${accentClass} ${!unit.is_visible ? 'unit-card--hidden' : ''}`}>
+
+      {/* Status row */}
       <div className="unit-card-topbar">
-        <span className={`unit-card-vis ${unit.is_visible ? 'unit-card-vis--on' : 'unit-card-vis--off'}`}>
-          {unit.is_visible ? 'Visible' : 'Hidden'}
-        </span>
+        {isTeacher ? (
+          <span className={`unit-card-vis ${unit.is_visible ? 'unit-card-vis--on' : 'unit-card-vis--off'}`}>
+            {unit.is_visible ? '● Published' : '○ Hidden'}
+          </span>
+        ) : (
+          <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500, letterSpacing: '0.04em' }}>Unit</span>
+        )}
         {dueDate && (
           <span className={`unit-card-due ${isPastDue ? 'unit-card-due--late' : ''}`}>
-            {isPastDue ? 'Past due · ' : 'Due · '}{dueDate}
+            {isPastDue ? '⚠ ' : ''}{isPastDue ? 'Past due' : 'Due'} {dueDate}
           </span>
         )}
       </div>
@@ -58,15 +52,17 @@ export default function UnitCard({ unit, role, onToggleVis, onDelete, completion
       </h3>
 
       {/* Context preview */}
-      {previewText && (
-        <p className="unit-card-context">{previewText}</p>
-      )}
+      {unit.context ? (
+        <p className="unit-card-context">{unit.context}</p>
+      ) : isTeacher ? (
+        <p className="unit-card-context unit-card-context--empty">No context set — add context to enable AI features.</p>
+      ) : null}
 
-      {/* Student progress dots */}
+      {/* Student progress */}
       {!isTeacher && completion && (
         <div className="unit-card-progress">
           {sections.map(({ key, label }) => (
-            <div key={key} className="unit-card-progress-item">
+            <div key={key} className={`unit-card-progress-item ${completion[key] ? 'unit-card-progress-item--done' : ''}`}>
               <span className={`unit-card-progress-dot ${completion[key] ? 'unit-card-progress-dot--done' : ''}`} />
               <span className="unit-card-progress-label">{label}</span>
             </div>
@@ -74,29 +70,32 @@ export default function UnitCard({ unit, role, onToggleVis, onDelete, completion
         </div>
       )}
 
-      {/* Actions */}
+      {/* Footer */}
       <div className="unit-card-footer">
-        <button className="unit-card-btn unit-card-btn--primary" onClick={() => navigate(basePath)}>
-          {isTeacher ? 'Manage →' : 'Open →'}
-        </button>
-
-        {isTeacher && (
-          <div className="unit-card-teacher-actions">
-            <button
-              className="unit-card-btn unit-card-btn--ghost"
-              onClick={() => onToggleVis?.(unit)}
-              title={unit.is_visible ? 'Hide from students' : 'Make visible'}
-            >
-              {unit.is_visible ? 'Hide' : 'Publish'}
+        {isTeacher ? (
+          <>
+            <div className="unit-card-teacher-actions">
+              <button
+                className="unit-card-btn unit-card-btn--ghost"
+                onClick={() => onToggleVis?.(unit)}
+              >
+                {unit.is_visible ? 'Hide' : 'Publish'}
+              </button>
+              <button
+                className="unit-card-btn unit-card-btn--danger"
+                onClick={() => onDelete?.(unit)}
+              >
+                Delete
+              </button>
+            </div>
+            <button className="unit-card-btn unit-card-btn--primary" onClick={() => navigate(basePath)}>
+              Manage →
             </button>
-            <button
-              className="unit-card-btn unit-card-btn--danger"
-              onClick={() => onDelete?.(unit)}
-              title="Delete unit"
-            >
-              Delete
-            </button>
-          </div>
+          </>
+        ) : (
+          <button className="unit-card-btn unit-card-btn--primary" onClick={() => navigate(basePath)}>
+            Open →
+          </button>
         )}
       </div>
 

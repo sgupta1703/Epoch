@@ -276,6 +276,68 @@ router.get('/:id/performance', authenticate, requireRole('teacher'), async (req,
   } catch (err) { next(err); }
 });
 
+// GET /api/classrooms/:id/analyze  — return saved analysis (or null)
+router.get('/:id/analyze', authenticate, requireRole('teacher'), async (req, res, next) => {
+  try {
+    const { id: classroomId } = req.params;
+
+    const { data: classroom } = await supabase.from('classrooms').select('id')
+      .eq('id', classroomId).eq('teacher_id', req.user.id).single();
+    if (!classroom) return res.status(403).json({ error: 'Access denied' });
+
+    const { data } = await supabase.from('classroom_ai_analysis')
+      .select('analysis, updated_at').eq('classroom_id', classroomId).single();
+
+    res.json({ analysis: data?.analysis ?? null, updated_at: data?.updated_at ?? null });
+  } catch (err) { next(err); }
+});
+
+// POST /api/classrooms/:id/analyze  — (re)generate and save analysis
+router.post('/:id/analyze', authenticate, requireRole('teacher'), async (req, res, next) => {
+  try {
+    const { id: classroomId } = req.params;
+
+    const { data: classroom } = await supabase.from('classrooms').select('id, name')
+      .eq('id', classroomId).eq('teacher_id', req.user.id).single();
+    if (!classroom) return res.status(403).json({ error: 'Access denied' });
+
+    const { data: enrollments, error: eErr } = await supabase.from('classroom_students')
+      .select('joined_at, profiles(id, display_name)')
+      .eq('classroom_id', classroomId).order('joined_at', { ascending: true });
+    if (eErr) throw eErr;
+
+    const students = (enrollments || []).map(row => ({ ...row.profiles, joined_at: row.joined_at }));
+    if (students.length === 0) return res.status(400).json({ error: 'No students enrolled yet. Add students before analyzing.' });
+
+    const { data: units, error: uErr } = await supabase.from('units').select('id, title, order_index')
+      .eq('classroom_id', classroomId).order('order_index', { ascending: true });
+    if (uErr) throw uErr;
+
+    const results = await Promise.all(
+      students.map(async (student) => {
+        const performance = await buildStudentPerformance(units || [], student.id);
+        return { student, performance };
+      })
+    );
+
+    const performanceData = {
+      units: (units || []).map(u => ({ id: u.id, title: u.title })),
+      results,
+    };
+
+    const { analyzeClassPerformance } = require('../services/claude');
+    const analysis = await analyzeClassPerformance(classroom.name, performanceData);
+
+    const updated_at = new Date().toISOString();
+    await supabase.from('classroom_ai_analysis').upsert(
+      { classroom_id: classroomId, analysis, updated_at },
+      { onConflict: 'classroom_id' }
+    );
+
+    res.json({ analysis, updated_at });
+  } catch (err) { next(err); }
+});
+
 // GET /api/classrooms/:id  ← LAST
 router.get('/:id', authenticate, async (req, res, next) => {
   try {

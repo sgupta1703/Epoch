@@ -213,6 +213,96 @@
   margin-top: 16px;
 }
 
+/* Sent / success icon */
+.auth-sent-state { display: flex; flex-direction: column; }
+
+.auth-sent-icon {
+  font-size: 42px;
+  margin-bottom: 16px;
+}
+
+/* Inline text button (e.g. "try again") */
+.auth-inline-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: inherit;
+  color: var(--rust);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.auth-inline-btn:hover { color: var(--rust-dark); }
+
+/* Password show/hide */
+.auth-pw-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-pw-wrap input {
+  padding-right: 60px;
+}
+
+.auth-pw-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  color: var(--rust);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.auth-pw-toggle:hover { background: rgba(184,76,43,0.08); }
+
+/* Password strength */
+.auth-pw-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.auth-pw-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-pw-bar::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s, background 0.3s;
+}
+
+.auth-pw-bar--weak::after   { width: 33%; background: #c0392b; }
+.auth-pw-bar--ok::after     { width: 66%; background: #d4a017; }
+.auth-pw-bar--strong::after { width: 100%; background: #27ae60; }
+
+.auth-pw-strength-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .auth-panel { width: 100%; border-right: none; padding: 40px 28px; }
   .auth-aside { display: none; }

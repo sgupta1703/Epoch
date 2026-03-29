@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -19,13 +19,32 @@ const TABS = [
   { key: 'assignment', label: 'Assignment' },
 ];
 
+const TAB_DETAILS = {
+  notes: { eyebrow: 'Read', copy: 'Review teacher notes and unit context.' },
+  personas: { eyebrow: 'Discuss', copy: 'Talk with historical personas from this unit.' },
+  quiz: { eyebrow: 'Check', copy: 'Test your understanding with quizzes.' },
+  assignment: { eyebrow: 'Apply', copy: 'Complete the full assignment with sources.' },
+};
+
+function getActiveTabFromPath(pathname) {
+  const match = pathname.match(/\/unit\/[^/]+(?:\/([^/?#]+))?/);
+  const maybeTab = match?.[1];
+  return TABS.some(tab => tab.key === maybeTab) ? maybeTab : 'notes';
+}
+
+function getTabPath(classroomId, unitId, tabKey) {
+  const basePath = `/student/classroom/${classroomId}/unit/${unitId}`;
+  return tabKey === 'notes' ? basePath : `${basePath}/${tabKey}`;
+}
+
 export default function StudentUnit({ user }) {
   const { classroomId, unitId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [classrooms, setClassrooms] = useState([]);
   const [unit, setUnit] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('notes');
+  const activeTab = getActiveTabFromPath(location.pathname);
 
   useEffect(() => {
     async function fetchAll() {
@@ -44,7 +63,7 @@ export default function StudentUnit({ user }) {
       }
     }
     fetchAll();
-  }, [unitId]);
+  }, [classroomId, navigate, unitId]);
 
   if (loading) return (
     <>
@@ -68,26 +87,31 @@ export default function StudentUnit({ user }) {
             ← Back to Courses
           </p>
 
-          <div className="page-header">
-            <div className="page-header-left">
+          <div className="student-unit-hero">
+            <div className="page-header-left student-unit-hero-copy">
+              <p className="page-eyebrow">Unit Workspace</p>
               <h1 className="page-title">{unit?.title}</h1>
               {unit?.context && <p className="page-subtitle">{unit.context}</p>}
             </div>
-            {unit?.due_date && (
-              <span style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }}>
-                Due {new Date(unit.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-              </span>
-            )}
+            <div className="student-unit-meta">
+              {unit?.due_date && (
+                <span className="student-unit-meta-pill student-unit-meta-pill--due">
+                  Due {new Date(unit.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="tabs">
+          <div className="student-unit-quicknav">
             {TABS.map(t => (
               <button
                 key={t.key}
-                className={`tab-btn ${activeTab === t.key ? 'tab-btn--active' : ''}`}
-                onClick={() => setActiveTab(t.key)}
+                className={`student-unit-quicknav-card ${activeTab === t.key ? 'student-unit-quicknav-card--active' : ''}`}
+                onClick={() => navigate(getTabPath(classroomId, unitId, t.key))}
               >
-                {t.label}
+                <span className="student-unit-quicknav-eyebrow">{TAB_DETAILS[t.key].eyebrow}</span>
+                <strong className="student-unit-quicknav-title">{t.label}</strong>
+                <span className="student-unit-quicknav-copy">{TAB_DETAILS[t.key].copy}</span>
               </button>
             ))}
           </div>

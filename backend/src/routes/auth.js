@@ -97,4 +97,66 @@ router.get('/me', authenticate, async (req, res, next) => {
   }
 });
 
+// POST /api/auth/forgot-password
+// Body: { email, redirectTo }
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { email, redirectTo } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'email is required' });
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectTo || 'http://localhost:5173/reset-password',
+    });
+
+    if (error) return res.status(400).json({ error: error.message });
+
+    // Always return success — don't reveal whether the email exists
+    res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/reset-password
+// Body: { token, new_password }
+// token is {{ .Token }} from the Supabase email template embedded directly in the app URL
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, new_password } = req.body;
+
+    if (!token || !new_password) {
+      return res.status(400).json({ error: 'token and new_password are required' });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Verify the token hash — consumed here for the first time (not pre-fetched by SafeLinks)
+    const { data, error: otpErr } = await supabase.auth.verifyOtp({
+      token_hash: token,
+      type: 'recovery',
+    });
+
+    if (otpErr || !data?.user) {
+      console.error('[reset-password] verifyOtp error:', otpErr?.message);
+      return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+    }
+
+    // Update the password
+    const { error: updateErr } = await supabase.auth.admin.updateUserById(data.user.id, {
+      password: new_password,
+    });
+
+    if (updateErr) throw updateErr;
+
+    res.json({ message: 'Password reset successfully. You can now sign in.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

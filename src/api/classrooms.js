@@ -61,3 +61,13 @@ export async function getClassroomPerformance(classroomId) {
   const res = await api.get(`/api/classrooms/${classroomId}/performance`);
   return res.data;
 }
+
+export async function getClassAnalysis(classroomId) {
+  const res = await api.get(`/api/classrooms/${classroomId}/analyze`);
+  return res.data;
+}
+
+export async function analyzeClassPerformance(classroomId) {
+  const res = await api.post(`/api/classrooms/${classroomId}/analyze`);
+  return res.data;
+}
