@@ -8,20 +8,63 @@ function settingsBlock(instruction) {
 }
 
 async function generateNotes(title, context, aiInstruction = '') {
-  const prompt = `You are an expert history educator. Generate comprehensive, well-structured notes for a high school history unit.
+  const prompt = `You are a master history educator writing comprehensive, detailed study notes for high school students. These notes are the primary learning material for the unit — they must be thorough enough that a student who reads nothing else can fully understand and ace a test on this topic. Do not cut corners. Cover everything important.
+
+Use structured formatting throughout: bullet points, bold terms, clear subsections. Avoid large unbroken paragraphs — break content into readable chunks. But do not sacrifice depth for brevity.
 
 Unit Title: ${title}
 Unit Context: ${context}
 
-Write the notes in Markdown. Include these sections:
-1. Overview
-2. Historical Background
-3. Key Figures
-4. Timeline of Events
-5. Causes & Effects
-6. Significance & Legacy
+Write in Markdown using exactly these sections in this order. Do not add closing remarks or meta-commentary after the last section.
 
-Keep the language clear and appropriate and extremely detailed.${settingsBlock(aiInstruction)}`;
+---
+
+## Overview
+2 paragraphs (5–7 sentences each). Paragraph 1: what this unit is about, when and where it takes place, the central conflict or question driving the period. Paragraph 2: why it matters — what was at stake, who was affected, and how it fits into the broader arc of history.
+Then: 5–7 bullet points of the most critical facts and ideas a student must understand before diving in.
+
+## Historical Background
+Bullet points only — no prose paragraphs. Cover the political, social, economic, and cultural conditions that made this period possible. Go back far enough to give real context. Each bullet is 2–3 sentences explaining the condition AND how it connects to what follows.
+Include 8–12 bullets.
+
+## Key Figures
+For each figure use this exact format:
+
+**[Full Name]** — [Role/Title, dates if relevant]
+[3–4 sentences: who they were, their background, what specific actions they took, and why they mattered to this period. Include their motivations, what they were fighting for or against, and how events changed because of them.]
+
+Include 8–12 figures. Cover multiple sides — leaders, opponents, ordinary people, different social groups. Do not just list rulers — include those who resisted, suffered, or shaped events from below.
+
+## Timeline of Events
+Chronological bullet list. Each entry:
+**[Specific Date or Year]** — [What happened, who was involved, and what immediately changed as a result. 2–3 sentences per entry.]
+
+Include 14–18 entries spanning the full arc of the unit. No vague entries — every entry must name specific people, places, laws, battles, or outcomes.
+
+## Causes & Effects
+Bullet points only. Use all four subsections:
+
+**Long-Term Causes** (structural conditions building over decades or centuries)
+- [5–6 bullets, 2 sentences each: name the cause and explain how it built pressure toward this period]
+
+**Short-Term Triggers** (specific events or decisions that set things in motion)
+- [4–5 bullets, 2 sentences each: name the trigger, when it happened, and what it sparked]
+
+**Immediate Effects** (what changed in the weeks, months, years directly following)
+- [5–6 bullets, 2 sentences each]
+
+**Long-Term Consequences** (what this period permanently changed over decades or centuries)
+- [5–6 bullets, 2 sentences each]
+
+## Key Concepts & Vocabulary
+Format each term as:
+**[Term]** — [2–3 sentence definition. First sentence: what it means. Second/third: how it applies specifically to this unit and why students need to understand it.]
+
+Include 10–14 terms covering the most important ideas, systems, policies, and vocabulary from this period.
+
+## Significance & Legacy
+2 paragraphs on why this period permanently matters. Be specific — name what changed, who was affected long-term, and how it connects to later events or the world today. No vague statements like "it was important" or "it changed history."
+Then: 5–7 bullet points on specific lasting impacts, each 2–3 sentences.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   return result.response.text();
@@ -593,6 +636,119 @@ Rules:
   return JSON.parse(raw);
 }
 
+async function analyzeClassPerformance(classroomTitle, performanceData) {
+  const studentSummaries = performanceData.results.map(({ student, performance }) => {
+    const unitBreakdown = performance.units.map(u => {
+      const quizStr = u.quiz?.score !== null && u.quiz?.score !== undefined ? `${u.quiz.score}%` : 'not submitted';
+      const assignStr = u.assignment?.score !== null && u.assignment?.score !== undefined ? `${u.assignment.score}%` : 'not submitted';
+      return `- ${u.unit_title}: Quiz ${quizStr}, Assignment ${assignStr}`;
+    }).join('\n');
+    return `${student.display_name} (overall: ${performance.overall !== null && performance.overall !== undefined ? `${performance.overall}%` : 'N/A'})\n${unitBreakdown}`;
+  }).join('\n\n');
+
+  const unitsList = performanceData.units.map(u => u.title).join(', ');
+
+  const prompt = `You are a history teacher reviewing your entire class's performance to identify patterns and plan next steps.
+
+Classroom: ${classroomTitle}
+Units covered: ${unitsList}
+
+Student Performance Data:
+${studentSummaries}
+
+Analyze the data to find meaningful patterns — not just averages. Look for:
+- Which units or assessment types the class struggled with most
+- Whether quiz and assignment scores diverge (could indicate a specific skill gap)
+- Which students are notably underperforming or not submitting
+
+Return ONLY a valid JSON object with exactly these fields, no markdown, no backticks:
+{
+  "summary": "<2-3 sentences describing the class's overall performance. Reference actual score ranges or notable patterns.>",
+  "strengths": ["<specific unit or concept where scores were high>", "<another strength>"],
+  "weaknesses": ["<specific unit, question type, or student group showing struggles>", "<another weakness>"],
+  "recommendations": ["<concrete actionable step for the teacher>", "<another recommendation>"]
+}`;
+
+  const result = await model.generateContent(prompt);
+  let raw = result.response.text().trim();
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error(`analyzeClassPerformance: no JSON object in response`);
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+async function evaluateEssayOutline(question, outline, aiInstruction = '') {
+  const prompt = `You are an AP History essay coach evaluating a student's essay outline before they write. Be honest and direct — vague outlines produce weak essays.
+
+Essay question: "${question}"
+
+Student's outline:
+- Thesis: ${outline.thesis || '(empty)'}
+- Evidence 1: ${outline.evidence1 || '(empty)'}
+- Evidence 2: ${outline.evidence2 || '(empty)'}
+- Analysis: ${outline.analysis || '(empty)'}
+- Counterclaim: ${outline.counterclaim || '(empty)'}
+
+Evaluate each field against AP rubric standards:
+- THESIS: Does it make a historically defensible, specific claim that goes beyond restating the question? Vague = weak.
+- EVIDENCE: Is each piece specific — a named event, law, person, or date? "Many people suffered" = weak. Named specifics = strong.
+- ANALYSIS: Does the student explain how evidence proves the thesis? Stating facts without connecting them = weak.
+- COUNTERCLAIM: Does the student name a real opposing argument? "Some people disagreed" = weak. Specific historical viewpoint = strong.
+
+If a field is empty: mark it weak and tell the student exactly what to write for this question.
+
+Return ONLY a valid JSON object with exactly these fields, no markdown, no backticks:
+{
+  "thesis":      { "status": "<strong|ok|weak>", "feedback": "<1-2 sentences, specific>" },
+  "evidence1":   { "status": "<strong|ok|weak>", "feedback": "<1-2 sentences, specific>" },
+  "evidence2":   { "status": "<strong|ok|weak>", "feedback": "<1-2 sentences, specific>" },
+  "analysis":    { "status": "<strong|ok|weak>", "feedback": "<1-2 sentences, specific>" },
+  "counterclaim":{ "status": "<strong|ok|weak>", "feedback": "<1-2 sentences, specific>" }
+}.${settingsBlock(aiInstruction)}`;
+
+  const result = await model.generateContent(prompt);
+  let raw = result.response.text().trim();
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error(`evaluateEssayOutline: no JSON object in response`);
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+async function chatWithEssayGuide(question, essay, messages, aiInstruction = '') {
+  const systemPrompt = `You are the Essay Guide, an AP History essay coach. Your job is to help students strengthen their essays through Socratic questioning and targeted feedback. You never write sentences for them.
+
+Essay question: "${question}"
+Student's current draft: """${essay || '(not started yet)'}"""
+
+How to coach:
+- Read the student's draft carefully before responding. React to what is actually there — not a generic essay.
+- If the draft is missing a thesis: ask them what argument they're trying to make, not just "do you have a thesis?"
+- If the thesis is vague: push them to be more specific. Ask "what exactly are you claiming?" or "can you name the specific cause/event/person?"
+- If evidence is vague: ask them to name a specific event, law, person, or date that supports their point.
+- If analysis is missing: ask "how does that prove your argument?" or "why does that matter?"
+- If the counterclaim is missing or weak: ask "what would someone who disagrees with you say?" and "how would you respond?"
+- Prioritize the weakest part of their current draft in each response.
+- Be direct. Do not over-praise weak work. Do not lecture — ask one or two sharp questions and let the student respond.
+- Keep responses to 2-4 sentences max.${settingsBlock(aiInstruction)}`;
+
+  const history = messages.slice(0, -1).map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+
+  const lastMessage = messages[messages.length - 1].content;
+
+  const chat = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    systemInstruction: systemPrompt,
+  }).startChat({ history });
+
+  const result = await chat.sendMessage(lastMessage);
+  return result.response.text().trim() || 'Sorry, I had trouble responding. Try again.';
+}
+
 module.exports = {
   generateNotes,
   chatWithEpochAssistant,
@@ -601,6 +757,9 @@ module.exports = {
   gradeShortAnswer,
   gradeEssay,
   analyzePerformance,
+  analyzeClassPerformance,
   generateAssignmentContent,
   generateTimeline,
+  evaluateEssayOutline,
+  chatWithEssayGuide,
 };

@@ -76,7 +76,12 @@ export default function Login({ onLogin }) {
           </div>
 
           <div className="auth-field">
-            <label>Password</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+              <label style={{ margin: 0 }}>Password</label>
+              <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--rust)', textDecoration: 'none', fontWeight: 500 }}>
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               name="password"

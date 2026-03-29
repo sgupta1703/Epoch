@@ -34,8 +34,10 @@ function isMatchingMcAnswer(studentAnswer, correctAnswer) {
   return normalizeMcAnswer(studentAnswer) !== '' && normalizeMcAnswer(studentAnswer) === normalizeMcAnswer(correctAnswer);
 }
 
-// GET /api/units/:unitId/assignment
-router.get('/:unitId/assignment', authenticate, async (req, res, next) => {
+// ─── LIST ──────────────────────────────────────────────────────────────────────
+
+// GET /api/units/:unitId/assignments
+router.get('/:unitId/assignments', authenticate, async (req, res, next) => {
   try {
     const { unitId } = req.params;
 
@@ -47,15 +49,74 @@ router.get('/:unitId/assignment', authenticate, async (req, res, next) => {
       if (!canAccess) return res.status(403).json({ error: 'Access denied' });
     }
 
+    const { data: assignments, error } = await supabase
+      .from('assignments')
+      .select('id, name, due_date, essay_guide_enabled, created_at')
+      .eq('unit_id', unitId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    // attach question + source counts
+    const withCounts = await Promise.all((assignments || []).map(async a => {
+      const [{ count: qCount }, { count: sCount }] = await Promise.all([
+        supabase.from('assignment_questions').select('id', { count: 'exact', head: true }).eq('assignment_id', a.id),
+        supabase.from('assignment_sources').select('id', { count: 'exact', head: true }).eq('assignment_id', a.id),
+      ]);
+      return { ...a, question_count: qCount || 0, source_count: sCount || 0 };
+    }));
+
+    res.json({ assignments: withCounts });
+  } catch (err) { next(err); }
+});
+
+// ─── CREATE ────────────────────────────────────────────────────────────────────
+
+// POST /api/units/:unitId/assignments
+router.post('/:unitId/assignments', authenticate, requireRole('teacher'), async (req, res, next) => {
+  try {
+    const { unitId } = req.params;
+    const { name, due_date } = req.body;
+
+    if (!name?.trim()) return res.status(400).json({ error: 'Assignment name is required' });
+
+    const owns = await teacherOwnsUnit(unitId, req.user.id);
+    if (!owns) return res.status(403).json({ error: 'Access denied' });
+
+    const { data: assignment, error } = await supabase
+      .from('assignments')
+      .insert({ unit_id: unitId, name: name.trim(), due_date: due_date || null })
+      .select().single();
+
+    if (error) throw error;
+    res.status(201).json({ assignment });
+  } catch (err) { next(err); }
+});
+
+// ─── GET SINGLE ────────────────────────────────────────────────────────────────
+
+// GET /api/units/:unitId/assignments/:assignmentId
+router.get('/:unitId/assignments/:assignmentId', authenticate, async (req, res, next) => {
+  try {
+    const { unitId, assignmentId } = req.params;
+
+    if (req.user.role === 'teacher') {
+      const owns = await teacherOwnsUnit(unitId, req.user.id);
+      if (!owns) return res.status(403).json({ error: 'Access denied' });
+    } else {
+      const canAccess = await studentCanAccessUnit(unitId, req.user.id);
+      if (!canAccess) return res.status(403).json({ error: 'Access denied' });
+    }
+
     const { data: assignment, error: aErr } = await supabase
-      .from('assignments').select('*').eq('unit_id', unitId).single();
+      .from('assignments').select('*').eq('id', assignmentId).eq('unit_id', unitId).single();
 
     if (aErr && aErr.code !== 'PGRST116') throw aErr;
-    if (!assignment) return res.json({ assignment: null });
+    if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
 
     const [{ data: sources, error: sErr }, { data: questions, error: qErr }] = await Promise.all([
-      supabase.from('assignment_sources').select('*').eq('assignment_id', assignment.id).order('order_index', { ascending: true }),
-      supabase.from('assignment_questions').select('*').eq('assignment_id', assignment.id).order('order_index', { ascending: true }),
+      supabase.from('assignment_sources').select('*').eq('assignment_id', assignmentId).order('order_index', { ascending: true }),
+      supabase.from('assignment_questions').select('*').eq('assignment_id', assignmentId).order('order_index', { ascending: true }),
     ]);
 
     if (sErr) throw sErr;
@@ -69,10 +130,12 @@ router.get('/:unitId/assignment', authenticate, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/units/:unitId/assignment/generate
-router.post('/:unitId/assignment/generate', authenticate, requireRole('teacher'), async (req, res, next) => {
+// ─── GENERATE ──────────────────────────────────────────────────────────────────
+
+// POST /api/units/:unitId/assignments/:assignmentId/generate
+router.post('/:unitId/assignments/:assignmentId/generate', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
-    const { unitId } = req.params;
+    const { unitId, assignmentId } = req.params;
     const { source_count = 2, question_count = 4 } = req.body;
 
     const owns = await teacherOwnsUnit(unitId, req.user.id);
@@ -94,20 +157,15 @@ router.post('/:unitId/assignment/generate', authenticate, requireRole('teacher')
       buildTeacherAiInstruction(settings),
     );
 
-    const { data: assignment, error: aErr } = await supabase
-      .from('assignments').upsert({ unit_id: unitId }, { onConflict: 'unit_id' }).select().single();
-
-    if (aErr) throw aErr;
-
     await Promise.all([
-      supabase.from('assignment_sources').delete().eq('assignment_id', assignment.id),
-      supabase.from('assignment_questions').delete().eq('assignment_id', assignment.id),
+      supabase.from('assignment_sources').delete().eq('assignment_id', assignmentId),
+      supabase.from('assignment_questions').delete().eq('assignment_id', assignmentId),
     ]);
 
     const [{ data: sources, error: sErr }, { data: questions, error: qErr }] = await Promise.all([
       supabase.from('assignment_sources').insert(
         generated.sources.map((s, i) => ({
-          assignment_id: assignment.id,
+          assignment_id: assignmentId,
           title:        s.title,
           content:      s.content,
           source_type:  s.source_type,
@@ -117,7 +175,7 @@ router.post('/:unitId/assignment/generate', authenticate, requireRole('teacher')
       ).select(),
       supabase.from('assignment_questions').insert(
         generated.questions.map((q, i) => ({
-          assignment_id:  assignment.id,
+          assignment_id:  assignmentId,
           question_text:  q.question_text,
           type:           q.type,
           options:        q.options || null,
@@ -130,33 +188,39 @@ router.post('/:unitId/assignment/generate', authenticate, requireRole('teacher')
     if (sErr) throw sErr;
     if (qErr) throw qErr;
 
+    const { data: assignment } = await supabase.from('assignments').select('*').eq('id', assignmentId).single();
     res.json({ assignment: { ...assignment, sources, questions } });
   } catch (err) { next(err); }
 });
 
-// PUT /api/units/:unitId/assignment
-router.put('/:unitId/assignment', authenticate, requireRole('teacher'), async (req, res, next) => {
+// ─── SAVE / UPDATE ─────────────────────────────────────────────────────────────
+
+// PUT /api/units/:unitId/assignments/:assignmentId
+router.put('/:unitId/assignments/:assignmentId', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
-    const { unitId } = req.params;
-    const { sources = [], questions = [], due_date, essay_guide_enabled } = req.body;
+    const { unitId, assignmentId } = req.params;
+    const { sources = [], questions = [], due_date, essay_guide_enabled, name } = req.body;
 
     const owns = await teacherOwnsUnit(unitId, req.user.id);
     if (!owns) return res.status(403).json({ error: 'Access denied' });
 
+    const updateFields = {
+      due_date:            due_date || null,
+      essay_guide_enabled: essay_guide_enabled ?? true,
+    };
+    if (name?.trim()) updateFields.name = name.trim();
+
     const { data: assignment, error: aErr } = await supabase
       .from('assignments')
-      .upsert({
-        unit_id:             unitId,
-        due_date:            due_date || null,
-        essay_guide_enabled: essay_guide_enabled ?? true,
-      }, { onConflict: 'unit_id' })
+      .update(updateFields)
+      .eq('id', assignmentId).eq('unit_id', unitId)
       .select().single();
 
     if (aErr) throw aErr;
 
     await Promise.all([
-      supabase.from('assignment_sources').delete().eq('assignment_id', assignment.id),
-      supabase.from('assignment_questions').delete().eq('assignment_id', assignment.id),
+      supabase.from('assignment_sources').delete().eq('assignment_id', assignmentId),
+      supabase.from('assignment_questions').delete().eq('assignment_id', assignmentId),
     ]);
 
     const inserts = [];
@@ -165,12 +229,13 @@ router.put('/:unitId/assignment', authenticate, requireRole('teacher'), async (r
       inserts.push(
         supabase.from('assignment_sources').insert(
           sources.map((s, i) => ({
-            assignment_id: assignment.id,
+            assignment_id: assignmentId,
             title:        s.title,
             content:      s.content,
             source_type:  s.source_type || 'primary',
             format:       s.format || 'real',
             order_index:  s.order_index ?? i,
+            image_url:    s.image_url || null,
           }))
         ).select()
       );
@@ -180,12 +245,13 @@ router.put('/:unitId/assignment', authenticate, requireRole('teacher'), async (r
       inserts.push(
         supabase.from('assignment_questions').insert(
           questions.map((q, i) => ({
-            assignment_id:  assignment.id,
+            assignment_id:  assignmentId,
             question_text:  q.question_text,
             type:           q.type,
             options:        q.options || null,
             correct_answer: q.correct_answer,
             order_index:    q.order_index ?? i,
+            image_url:      q.image_url || null,
           }))
         ).select()
       );
@@ -201,10 +267,35 @@ router.put('/:unitId/assignment', authenticate, requireRole('teacher'), async (r
   } catch (err) { next(err); }
 });
 
-// POST /api/units/:unitId/assignment/submit
-router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), async (req, res, next) => {
+// ─── DELETE ────────────────────────────────────────────────────────────────────
+
+// DELETE /api/units/:unitId/assignments/:assignmentId
+router.delete('/:unitId/assignments/:assignmentId', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
-    const { unitId } = req.params;
+    const { unitId, assignmentId } = req.params;
+
+    const owns = await teacherOwnsUnit(unitId, req.user.id);
+    if (!owns) return res.status(403).json({ error: 'Access denied' });
+
+    await Promise.all([
+      supabase.from('assignment_sources').delete().eq('assignment_id', assignmentId),
+      supabase.from('assignment_questions').delete().eq('assignment_id', assignmentId),
+      supabase.from('assignment_submissions').delete().eq('assignment_id', assignmentId),
+    ]);
+
+    const { error } = await supabase.from('assignments').delete().eq('id', assignmentId).eq('unit_id', unitId);
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// ─── SUBMIT ────────────────────────────────────────────────────────────────────
+
+// POST /api/units/:unitId/assignments/:assignmentId/submit
+router.post('/:unitId/assignments/:assignmentId/submit', authenticate, requireRole('student'), async (req, res, next) => {
+  try {
+    const { unitId, assignmentId } = req.params;
     const { answers } = req.body;
 
     if (!Array.isArray(answers)) return res.status(400).json({ error: 'answers array is required' });
@@ -213,17 +304,17 @@ router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), 
     if (!canAccess) return res.status(403).json({ error: 'Access denied' });
 
     const { data: assignment } = await supabase
-      .from('assignments').select('id').eq('unit_id', unitId).single();
+      .from('assignments').select('id').eq('id', assignmentId).eq('unit_id', unitId).single();
     if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
 
     const { data: existing } = await supabase
       .from('assignment_submissions').select('id')
-      .eq('assignment_id', assignment.id).eq('student_id', req.user.id).single();
+      .eq('assignment_id', assignmentId).eq('student_id', req.user.id).single();
     if (existing) return res.status(409).json({ error: 'Assignment already submitted' });
 
     const { data: questions } = await supabase
       .from('assignment_questions').select('id, type, question_text, correct_answer')
-      .eq('assignment_id', assignment.id);
+      .eq('assignment_id', assignmentId);
     const studentSettings = await getUserSettings(req.user.id, req.user.role);
     const aiInstruction = buildStudentAiInstruction(studentSettings);
 
@@ -301,7 +392,7 @@ router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), 
     const { data: submission, error } = await supabase
       .from('assignment_submissions')
       .insert({
-        assignment_id:  assignment.id,
+        assignment_id:  assignmentId,
         student_id:     req.user.id,
         answers,
         score:          finalScore,
@@ -316,10 +407,12 @@ router.post('/:unitId/assignment/submit', authenticate, requireRole('student'), 
   } catch (err) { next(err); }
 });
 
-// GET /api/units/:unitId/assignment/results/:studentId
-router.get('/:unitId/assignment/results/:studentId', authenticate, async (req, res, next) => {
+// ─── RESULTS ───────────────────────────────────────────────────────────────────
+
+// GET /api/units/:unitId/assignments/:assignmentId/results/:studentId
+router.get('/:unitId/assignments/:assignmentId/results/:studentId', authenticate, async (req, res, next) => {
   try {
-    const { unitId, studentId } = req.params;
+    const { unitId, assignmentId, studentId } = req.params;
 
     if (req.user.role === 'student' && req.user.id !== studentId) return res.status(403).json({ error: 'Access denied' });
     if (req.user.role === 'teacher') {
@@ -327,35 +420,27 @@ router.get('/:unitId/assignment/results/:studentId', authenticate, async (req, r
       if (!owns) return res.status(403).json({ error: 'Access denied' });
     }
 
-    const { data: assignment } = await supabase
-      .from('assignments').select('id').eq('unit_id', unitId).single();
-    if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
-
     const { data: submission, error } = await supabase
       .from('assignment_submissions').select('*')
-      .eq('assignment_id', assignment.id).eq('student_id', studentId).single();
+      .eq('assignment_id', assignmentId).eq('student_id', studentId).single();
 
     if (error && error.code !== 'PGRST116') throw error;
     res.json({ submission: submission || null });
   } catch (err) { next(err); }
 });
 
-// GET /api/units/:unitId/assignment/all-results
-router.get('/:unitId/assignment/all-results', authenticate, requireRole('teacher'), async (req, res, next) => {
+// GET /api/units/:unitId/assignments/:assignmentId/all-results
+router.get('/:unitId/assignments/:assignmentId/all-results', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
-    const { unitId } = req.params;
+    const { unitId, assignmentId } = req.params;
 
     const owns = await teacherOwnsUnit(unitId, req.user.id);
     if (!owns) return res.status(403).json({ error: 'Access denied' });
 
-    const { data: assignment } = await supabase
-      .from('assignments').select('id').eq('unit_id', unitId).single();
-    if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
-
     const { data: submissions, error } = await supabase
       .from('assignment_submissions')
       .select('*, profiles(display_name)')
-      .eq('assignment_id', assignment.id)
+      .eq('assignment_id', assignmentId)
       .order('submitted_at', { ascending: false });
 
     if (error) throw error;

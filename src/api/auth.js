@@ -41,3 +41,22 @@ export async function getMe() {
   const res = await api.get('/api/auth/me');
   return res.data;
 }
+
+/**
+ * Send a password reset email.
+ * @param {{ email: string }} data
+ */
+export async function forgotPassword({ email }) {
+  const redirectTo = `${window.location.origin}/reset-password`;
+  const res = await api.post('/api/auth/forgot-password', { email, redirectTo });
+  return res.data;
+}
+
+/**
+ * Reset password using the raw OTP token from the email link.
+ * @param {{ token: string, new_password: string }} data
+ */
+export async function resetPassword({ token, new_password }) {
+  const res = await api.post('/api/auth/reset-password', { token, new_password });
+  return res.data;
+}

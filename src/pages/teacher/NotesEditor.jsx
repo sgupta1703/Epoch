@@ -51,7 +51,7 @@ export default function NotesEditor({ unit }) {
     try {
       const [{ notes }, { files }] = await Promise.all([
         getNotes(unit.id),
-        getFiles(unit.id),
+        getFiles(unit.id, 'notes_attachment'),
       ]);
       if (notes) {
         setNotes(notes);
@@ -104,7 +104,7 @@ export default function NotesEditor({ unit }) {
     setUploading(true);
     setUploadProgress(0);
     try {
-      const { file: uploaded } = await uploadFile(unit.id, file, pct => setUploadProgress(pct));
+      const { file: uploaded } = await uploadFile(unit.id, file, pct => setUploadProgress(pct), 'notes_attachment');
       setFiles(f => [uploaded, ...f]);
     } catch (err) {
       setUploadError(err.response?.data?.error || 'Upload failed. Try again.');

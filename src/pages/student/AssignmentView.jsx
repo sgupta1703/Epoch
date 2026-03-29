@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import EssayGuide from '../../components/EssayGuide';
-import { getAssignment, submitAssignment, getAssignmentResults } from '../../api/assignments';
+import { getAssignments, getAssignment, submitAssignment, getAssignmentResults } from '../../api/assignments';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import '../../styles/pages.css';
 import './Student.css';
@@ -63,9 +63,145 @@ function TaggedEssay({ text }) {
   );
 }
 
-export default function AssignmentView({ user }) {
-  const { unitId } = useParams();
+function AssignmentImagePreview({ src, alt, onOpen }) {
+  return (
+    <div className="assignment-image-preview">
+      <div className="assignment-image-preview-frame">
+        <img src={src} alt={alt} className="assignment-image-preview-img" onClick={onOpen} />
+      </div>
+      <div className="assignment-image-preview-actions">
+        <button type="button" className="assignment-image-preview-btn" onClick={onOpen}>
+          Open larger view
+        </button>
+      </div>
+    </div>
+  );
+}
 
+function AssignmentImageModal({ image, onClose }) {
+  useEffect(() => {
+    if (!image) return undefined;
+
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') onClose();
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [image, onClose]);
+
+  if (!image) return null;
+
+  return (
+    <div className="assignment-image-modal-overlay" onClick={onClose}>
+      <div className="assignment-image-modal-shell" onClick={e => e.stopPropagation()}>
+        <div className="assignment-image-modal-header">
+          <span className="assignment-image-modal-title">{image.alt}</span>
+          <button type="button" className="assignment-image-modal-close" onClick={onClose} aria-label="Close image preview">
+            x
+          </button>
+        </div>
+        <div className="assignment-image-modal-body">
+          <img src={image.src} alt={image.alt} className="assignment-image-modal-img" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ASSIGNMENT LIST ──────────────────────────────────────────────────────────
+
+function AssignmentList({ unitId, user, onSelectAssignment }) {
+  const [assignments, setAssignments]   = useState([]);
+  const [submissionMap, setSubmissionMap] = useState({});
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState('');
+
+  useEffect(() => { fetchAll(); }, [unitId]);
+
+  async function fetchAll() {
+    setLoading(true); setError('');
+    try {
+      const { assignments } = await getAssignments(unitId);
+      setAssignments(assignments || []);
+      const subs = {};
+      await Promise.all((assignments || []).map(async a => {
+        try {
+          const { submission } = await getAssignmentResults(unitId, a.id, user.id);
+          if (submission) subs[a.id] = submission;
+        } catch { /* no submission */ }
+      }));
+      setSubmissionMap(subs);
+    } catch { setError('Failed to load assignments.'); }
+    finally { setLoading(false); }
+  }
+
+  if (loading) return <LoadingSpinner label="Loading assignments…" />;
+
+  if (assignments.length === 0) {
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">📋</div>
+        <h3>No assignments yet</h3>
+        <p>Your teacher hasn't created any assignments for this unit yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {error && <div className="alert alert-error">{error}</div>}
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 16, color: 'var(--ink)' }}>Assignments</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {assignments.map(a => {
+          const sub = submissionMap[a.id];
+          const submitted = !!sub;
+          return (
+            <button key={a.id} onClick={() => onSelectAssignment(a)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '16px 18px', background: '#fff', border: '1px solid var(--border)',
+                borderRadius: 8, cursor: 'pointer', textAlign: 'left', width: '100%',
+                fontFamily: 'var(--font-body)',
+              }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', marginBottom: 4 }}>{a.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', gap: 12 }}>
+                  <span>{a.source_count} source{a.source_count !== 1 ? 's' : ''}</span>
+                  <span>{a.question_count} question{a.question_count !== 1 ? 's' : ''}</span>
+                  {a.due_date && <span>Due {new Date(a.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+                </div>
+              </div>
+              <div style={{ marginLeft: 16, flexShrink: 0 }}>
+                {submitted ? (
+                  <span style={{
+                    fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 10,
+                    background: sub.score !== null ? (sub.score >= 70 ? '#eaf6ea' : sub.score >= 40 ? '#fdf8ec' : '#fdecea') : '#eaf6ea',
+                    color: sub.score !== null ? scoreColor(sub.score) : '#2a7a2a',
+                  }}>
+                    {sub.score !== null ? `${sub.score}%` : '✓ Submitted'}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Start →</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── ASSIGNMENT TAKER ─────────────────────────────────────────────────────────
+
+function AssignmentTaker({ unitId, user, assignment: initialMeta, onBack }) {
   const [assignment, setAssignment] = useState(null);
   const [sources, setSources]       = useState([]);
   const [questions, setQuestions]   = useState([]);
@@ -75,27 +211,27 @@ export default function AssignmentView({ user }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState('');
   const [expandedSource, setExpandedSource] = useState(0);
+  const [previewImage, setPreviewImage] = useState(null);
 
-  const [guideOpen, setGuideOpen]           = useState(false);
-  const [guideQuestion, setGuideQuestion]   = useState('');
+  const [guideOpen, setGuideOpen]             = useState(false);
+  const [guideQuestion, setGuideQuestion]     = useState('');
   const [guideQuestionId, setGuideQuestionId] = useState(null);
 
   const view = submission ? 'results' : 'take';
-  // essay_guide_enabled defaults to true for older assignments without the field
   const guideEnabled = assignment?.essay_guide_enabled !== false;
 
-  useEffect(() => { fetchAll(); }, [unitId]);
+  useEffect(() => { fetchAll(); }, [initialMeta.id]);
 
   async function fetchAll() {
     setLoading(true); setError('');
     try {
-      const { assignment } = await getAssignment(unitId);
-      if (assignment) {
-        setAssignment(assignment);
-        setSources(assignment.sources || []);
-        setQuestions(assignment.questions || []);
+      const { assignment: full } = await getAssignment(unitId, initialMeta.id);
+      if (full) {
+        setAssignment(full);
+        setSources(full.sources || []);
+        setQuestions(full.questions || []);
         try {
-          const { submission } = await getAssignmentResults(unitId, user.id);
+          const { submission } = await getAssignmentResults(unitId, full.id, user.id);
           if (submission) setSubmission(submission);
         } catch { /* no submission yet */ }
       }
@@ -120,7 +256,7 @@ export default function AssignmentView({ user }) {
     setError(''); setSubmitting(true);
     try {
       const payload = questions.map(q => ({ question_id: q.id, answer: answers[q.id] }));
-      const { submission } = await submitAssignment(unitId, { answers: payload });
+      const { submission } = await submitAssignment(unitId, assignment.id, { answers: payload });
       setSubmission(submission);
     } catch (err) { setError(err.response?.data?.error || 'Failed to submit assignment.'); }
     finally { setSubmitting(false); }
@@ -133,13 +269,16 @@ export default function AssignmentView({ user }) {
 
   return (
     <div>
+      <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, fontSize: 13, fontFamily: 'var(--font-body)', marginBottom: 18 }}>
+        ← All Assignments
+      </button>
+
       {error && <div className="alert alert-error">{error}</div>}
 
       {!assignment ? (
         <div className="empty-state">
           <div className="empty-state-icon">📋</div>
-          <h3>No assignment yet</h3>
-          <p>Your teacher hasn't created an assignment for this unit yet.</p>
+          <h3>Assignment not found</h3>
         </div>
 
       ) : view === 'results' ? (
@@ -171,7 +310,18 @@ export default function AssignmentView({ user }) {
                     </div>
                     <span style={{ fontSize: 18, color: 'var(--muted)', lineHeight: 1 }}>{expandedSource === i ? '−' : '+'}</span>
                   </button>
-                  {expandedSource === i && <div className="assignment-source-body">{s.content}</div>}
+                  {expandedSource === i && (
+                    <div className="assignment-source-body">
+                      {s.image_url && (
+                        <AssignmentImagePreview
+                          src={s.image_url}
+                          alt={s.title ? `Source image: ${s.title}` : 'Source image'}
+                          onOpen={() => setPreviewImage({ src: s.image_url, alt: s.title ? `Source image: ${s.title}` : 'Source image' })}
+                        />
+                      )}
+                      {s.content}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -197,6 +347,13 @@ export default function AssignmentView({ user }) {
                   {isEssay && essayResult?.score !== null && essayResult?.score !== undefined && <span style={{ fontSize: 13, fontWeight: 600, color: scoreColor(essayResult.score) }}>{essayResult.score}%</span>}
                 </div>
                 <div className="quiz-student-question-text quiz-student-question-text--markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
+                {q.image_url && (
+                  <AssignmentImagePreview
+                    src={q.image_url}
+                    alt={`Question ${i + 1} image`}
+                    onOpen={() => setPreviewImage({ src: q.image_url, alt: `Question ${i + 1} image` })}
+                  />
+                )}
                 <div style={{ fontSize: 13, color: 'var(--muted)', background: 'var(--cream)', padding: '8px 12px', borderRadius: 4, marginBottom: 8 }}>
                   {isEssay ? <><strong style={{ color: 'var(--ink)' }}>Your essay:</strong><br />{studentAnswer?.answer || '—'}</> : <>Your answer: <strong style={{ color: 'var(--ink)' }}>{studentAnswer?.answer || '—'}</strong></>}
                 </div>
@@ -248,7 +405,18 @@ export default function AssignmentView({ user }) {
                   </div>
                   <span style={{ fontSize: 16, color: 'var(--muted)', flexShrink: 0 }}>{expandedSource === i ? '−' : '+'}</span>
                 </button>
-                {expandedSource === i && <div className="assignment-source-body">{s.content}</div>}
+                {expandedSource === i && (
+                  <div className="assignment-source-body">
+                    {s.image_url && (
+                      <AssignmentImagePreview
+                        src={s.image_url}
+                        alt={s.title ? `Source image: ${s.title}` : 'Source image'}
+                        onOpen={() => setPreviewImage({ src: s.image_url, alt: s.title ? `Source image: ${s.title}` : 'Source image' })}
+                      />
+                    )}
+                    {s.content}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -265,6 +433,13 @@ export default function AssignmentView({ user }) {
               <div key={q.id} className="quiz-student-question">
                 <div style={{ marginBottom: 8, fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>Question {i + 1} · {typeLabel(q.type)}</div>
                 <div className="quiz-student-question-text quiz-student-question-text--markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
+                {q.image_url && (
+                  <AssignmentImagePreview
+                    src={q.image_url}
+                    alt={`Question ${i + 1} image`}
+                    onOpen={() => setPreviewImage({ src: q.image_url, alt: `Question ${i + 1} image` })}
+                  />
+                )}
 
                 {q.type === 'multiple_choice' && (
                   <div className="quiz-options-list">
@@ -280,7 +455,6 @@ export default function AssignmentView({ user }) {
                 )}
                 {q.type === 'essay' && (
                   <>
-                    {/* Only show guide button if teacher has it enabled */}
                     {guideEnabled && (
                       <button onClick={() => openGuide(q)} style={{
                         display: 'flex', alignItems: 'center', gap: 6,
@@ -324,6 +498,48 @@ export default function AssignmentView({ user }) {
         question={guideQuestion}
         essayDraft={answers[guideQuestionId] || ''}
       />
+      <AssignmentImageModal image={previewImage} onClose={() => setPreviewImage(null)} />
     </div>
+  );
+}
+
+// ─── ROOT EXPORT ──────────────────────────────────────────────────────────────
+
+export default function AssignmentView({ user, unit }) {
+  const { unitId: routeUnitId } = useParams();
+  const unitId = unit?.id || routeUnitId;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedAssignmentId = searchParams.get('assignmentId');
+  const selectedAssignment = selectedAssignmentId ? { id: selectedAssignmentId } : null;
+
+  function handleSelectAssignment(assignment) {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('assignmentId', assignment.id);
+    setSearchParams(nextParams);
+  }
+
+  function handleBack() {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('assignmentId');
+    setSearchParams(nextParams);
+  }
+
+  if (selectedAssignment) {
+    return (
+      <AssignmentTaker
+        unitId={unitId}
+        user={user}
+        assignment={selectedAssignment}
+        onBack={handleBack}
+      />
+    );
+  }
+
+  return (
+    <AssignmentList
+      unitId={unitId}
+      user={user}
+      onSelectAssignment={handleSelectAssignment}
+    />
   );
 }

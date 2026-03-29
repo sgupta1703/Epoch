@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AppDatePicker from '../../components/AppDatePicker';
 import Modal, { ModalActions } from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { getAssignment, generateAssignment, saveAssignment, getAllAssignmentResults } from '../../api/assignments';
+import {
+  getAssignments, createAssignment, deleteAssignment,
+  getAssignment, generateAssignment, saveAssignment, getAllAssignmentResults,
+} from '../../api/assignments';
+import { uploadFile } from '../../api/files';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import '../../styles/pages.css';
 import './Teacher.css';
@@ -41,56 +45,289 @@ function isMatchingMcAnswer(studentAnswer, correctAnswer) {
   return normalizeMcAnswer(studentAnswer) !== '' && normalizeMcAnswer(studentAnswer) === normalizeMcAnswer(correctAnswer);
 }
 
-const BLANK_SOURCE   = { title: '', content: '', source_type: 'primary', format: 'real' };
-const BLANK_QUESTION = { question_text: '', type: 'short_answer', options: ['', '', '', ''], correct_answer: '' };
+const BLANK_SOURCE   = { title: '', content: '', source_type: 'primary', format: 'real', image_url: null };
+const BLANK_QUESTION = { question_text: '', type: 'short_answer', options: ['', '', '', ''], correct_answer: '', image_url: null };
 
-export default function AssignmentEditor({ unit, students = [] }) {
-  const [assignment, setAssignment] = useState(null);
+// ─── IMAGE UPLOAD ─────────────────────────────────────────────────────────────
+
+function QuestionImageUpload({ unitId, onUploaded }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const [isDragActive, setIsDragActive] = useState(false);
+  const dragDepthRef = useRef(0);
+
+  async function uploadImage(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setError('Please select an image file.'); return; }
+    setError('');
+    setUploading(true);
+    try {
+      const { file: uploaded } = await uploadFile(unitId, file, null, 'assignment_asset');
+      onUploaded(uploaded.url);
+    } catch {
+      setError('Upload failed. Try again.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    await uploadImage(file);
+    e.target.value = '';
+  }
+
+  function handleDragEnter(e) {
+    e.preventDefault();
+    if (uploading) return;
+    dragDepthRef.current += 1;
+    setIsDragActive(true);
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    if (uploading) return;
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDragActive(false);
+  }
+
+  async function handleDrop(e) {
+    e.preventDefault();
+    if (uploading) return;
+    dragDepthRef.current = 0;
+    setIsDragActive(false);
+    await uploadImage(e.dataTransfer?.files?.[0]);
+  }
+
+  return (
+    <div>
+      <label
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          minHeight: 108,
+          padding: '18px 16px',
+          border: `1px dashed ${isDragActive ? 'var(--ink)' : 'var(--border)'}`,
+          borderRadius: 10,
+          cursor: uploading ? 'default' : 'pointer',
+          fontSize: 13,
+          color: 'var(--muted)',
+          background: isDragActive ? '#f3f0e8' : '#fafaf8',
+          textAlign: 'center',
+          transition: 'background 0.15s ease, border-color 0.15s ease',
+        }}
+      >
+        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
+          {uploading ? 'Uploading...' : 'Drag and drop an image here'}
+        </span>
+        {!uploading && <span>or click to upload</span>}
+        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} disabled={uploading} />
+      </label>
+      {error && <p style={{ fontSize: 12, color: '#c0392b', marginTop: 6 }}>{error}</p>}
+    </div>
+  );
+}
+
+// ─── ASSIGNMENT LIST VIEW ────────────────────────────────────────────────────
+
+function AssignmentListView({ unit, onSelectAssignment }) {
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [creating, setCreating]       = useState(false);
+  const [deleting, setDeleting]       = useState(null);
+  const [error, setError]             = useState('');
+
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createName, setCreateName]         = useState('');
+  const [createDueDate, setCreateDueDate]   = useState('');
+  const [createError, setCreateError]       = useState('');
+
+  useEffect(() => { if (unit?.id) fetchAssignments(); }, [unit?.id]);
+
+  async function fetchAssignments() {
+    setLoading(true);
+    try {
+      const { assignments } = await getAssignments(unit.id);
+      setAssignments(assignments || []);
+    } catch { setError('Failed to load assignments.'); }
+    finally { setLoading(false); }
+  }
+
+  async function handleCreate() {
+    if (!createName.trim()) { setCreateError('Assignment name is required.'); return; }
+    setCreating(true); setCreateError('');
+    try {
+      const { assignment } = await createAssignment(unit.id, { name: createName.trim(), due_date: createDueDate || null });
+      setAssignments(a => [...a, { ...assignment, question_count: 0, source_count: 0 }]);
+      setShowCreateForm(false);
+      setCreateName('');
+      setCreateDueDate('');
+      onSelectAssignment(assignment);
+    } catch { setCreateError('Failed to create assignment. Try again.'); }
+    finally { setCreating(false); }
+  }
+
+  async function handleDelete(e, assignmentId) {
+    e.stopPropagation();
+    if (!window.confirm('Delete this assignment and all its submissions?')) return;
+    setDeleting(assignmentId);
+    try {
+      await deleteAssignment(unit.id, assignmentId);
+      setAssignments(a => a.filter(x => x.id !== assignmentId));
+    } catch { setError('Failed to delete assignment.'); }
+    finally { setDeleting(null); }
+  }
+
+  if (loading) return <LoadingSpinner fullPage label="Loading assignments…" />;
+
+  return (
+    <div>
+      {error && <div className="alert alert-error">{error}</div>}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', margin: 0 }}>Assignments</h3>
+          <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>
+            {assignments.length} assignment{assignments.length !== 1 ? 's' : ''} for this unit
+          </p>
+        </div>
+        <button className="btn btn-primary" onClick={() => { setShowCreateForm(true); setCreateError(''); setCreateName(''); setCreateDueDate(''); }}>
+          + New Assignment
+        </button>
+      </div>
+
+      {showCreateForm && (
+        <div style={{ background: 'var(--cream)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+          <h4 style={{ margin: '0 0 12px', fontFamily: 'var(--font-display)', fontSize: 15 }}>New Assignment</h4>
+          {createError && <div className="alert alert-error" style={{ marginBottom: 10 }}>{createError}</div>}
+          <div className="field">
+            <label>Name</label>
+            <input type="text" value={createName} onChange={e => setCreateName(e.target.value)}
+              placeholder="e.g. Document Analysis — Reconstruction Era" autoFocus
+              onKeyDown={e => e.key === 'Enter' && handleCreate()} />
+          </div>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label>Due Date (optional)</label>
+            <AppDatePicker value={createDueDate} onChange={val => setCreateDueDate(val)} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-ghost" onClick={() => setShowCreateForm(false)}>Cancel</button>
+            <button className="btn btn-dark" onClick={handleCreate} disabled={creating}>
+              {creating ? 'Creating…' : 'Create Assignment'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {assignments.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon"></div>
+          <h3>No assignments yet</h3>
+          <p>Create an assignment to get started.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {assignments.map(a => (
+            <div key={a.id}
+              style={{
+                border: '1px solid var(--border)', borderRadius: 10, padding: '16px 18px',
+                background: '#fff', display: 'flex', alignItems: 'center', gap: 16,
+                cursor: 'pointer', transition: 'box-shadow 0.15s',
+              }}
+              onClick={() => onSelectAssignment(a)}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(46,34,25,0.09)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, color: 'var(--ink)', marginBottom: 5 }}>
+                  {a.name}
+                </div>
+                <div style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--muted)', flexWrap: 'wrap' }}>
+                  <span style={{ background: 'var(--cream)', padding: '2px 9px', borderRadius: 999, fontWeight: 600, color: 'var(--ink)' }}>
+                    {a.source_count} source{a.source_count !== 1 ? 's' : ''}
+                  </span>
+                  <span style={{ background: 'var(--cream)', padding: '2px 9px', borderRadius: 999, fontWeight: 600, color: 'var(--ink)' }}>
+                    {a.question_count} question{a.question_count !== 1 ? 's' : ''}
+                  </span>
+                  {a.due_date && (
+                    <span>Due {new Date(a.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={e => { e.stopPropagation(); onSelectAssignment(a); }}>Edit</button>
+                <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={e => handleDelete(e, a.id)} disabled={deleting === a.id}>
+                  {deleting === a.id ? '…' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ASSIGNMENT EDITOR (single assignment) ────────────────────────────────────
+
+function AssignmentEditorInner({ unit, assignment: initialAssignment, students = [], onBack }) {
+  const [assignment, setAssignment] = useState(initialAssignment);
   const [sources, setSources]       = useState([]);
   const [questions, setQuestions]   = useState([]);
   const [dueDate, setDueDate]       = useState('');
   const [essayGuideEnabled, setEssayGuideEnabled] = useState(true);
 
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading]       = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [saved, setSaved]         = useState(false);
-  const [error, setError]         = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [saved, setSaved]           = useState(false);
+  const [error, setError]           = useState('');
 
   const [genSources, setGenSources]     = useState(2);
   const [genQuestions, setGenQuestions] = useState(4);
 
   const [activeTab, setActiveTab] = useState('content');
 
-  const [sourceModal, setSourceModal]       = useState(false);
-  const [editSourceIdx, setEditSourceIdx]   = useState(null);
-  const [sourceForm, setSourceForm]         = useState({ ...BLANK_SOURCE });
-  const [sourceFormError, setSourceFormError] = useState('');
+  const [sourceModal, setSourceModal]           = useState(false);
+  const [editSourceIdx, setEditSourceIdx]       = useState(null);
+  const [sourceForm, setSourceForm]             = useState({ ...BLANK_SOURCE });
+  const [sourceFormError, setSourceFormError]   = useState('');
 
-  const [questionModal, setQuestionModal]       = useState(false);
-  const [editQuestionIdx, setEditQuestionIdx]   = useState(null);
-  const [qForm, setQForm]                       = useState({ ...BLANK_QUESTION, options: ['', '', '', ''] });
-  const [qFormError, setQFormError]             = useState('');
+  const [questionModal, setQuestionModal]         = useState(false);
+  const [editQuestionIdx, setEditQuestionIdx]     = useState(null);
+  const [qForm, setQForm]                         = useState({ ...BLANK_QUESTION, options: ['', '', '', ''] });
+  const [qFormError, setQFormError]               = useState('');
 
-  const [submissions, setSubmissions]           = useState([]);
-  const [submissionsLoading, setSubmissionsLoading] = useState(false);
-  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [submissions, setSubmissions]                 = useState([]);
+  const [submissionsLoading, setSubmissionsLoading]   = useState(false);
+  const [selectedSubmission, setSelectedSubmission]   = useState(null);
 
   const hasEssayQuestions = questions.some(q => q.type === 'essay');
 
-  useEffect(() => { if (!unit?.id) return; fetchAssignment(); }, [unit?.id]);
-  useEffect(() => { if (activeTab === 'students' && assignment) fetchSubmissions(); }, [activeTab, assignment]);
+  useEffect(() => { fetchAssignment(); }, [assignment.id]);
+  useEffect(() => { if (activeTab === 'students') fetchSubmissions(); }, [activeTab]);
 
   async function fetchAssignment() {
     setLoading(true);
     try {
-      const { assignment } = await getAssignment(unit.id);
-      if (assignment) {
-        setAssignment(assignment);
-        setSources(assignment.sources || []);
-        setQuestions(assignment.questions || []);
-        setDueDate(assignment.due_date?.slice(0, 10) || '');
-        setEssayGuideEnabled(assignment.essay_guide_enabled ?? true);
+      const { assignment: fresh } = await getAssignment(unit.id, assignment.id);
+      if (fresh) {
+        setAssignment(fresh);
+        setSources(fresh.sources || []);
+        setQuestions(fresh.questions || []);
+        setDueDate(fresh.due_date?.slice(0, 10) || '');
+        setEssayGuideEnabled(fresh.essay_guide_enabled ?? true);
       }
     } catch { /* silent */ } finally { setLoading(false); }
   }
@@ -98,7 +335,7 @@ export default function AssignmentEditor({ unit, students = [] }) {
   async function fetchSubmissions() {
     setSubmissionsLoading(true);
     try {
-      const { submissions } = await getAllAssignmentResults(unit.id);
+      const { submissions } = await getAllAssignmentResults(unit.id, assignment.id);
       const enrolledIds = new Set(students.map(s => s.id));
       setSubmissions((submissions || []).filter(s => enrolledIds.has(s.student_id)));
     } catch { /* silent */ } finally { setSubmissionsLoading(false); }
@@ -108,8 +345,8 @@ export default function AssignmentEditor({ unit, students = [] }) {
     if (!unit?.context) { setError('This unit has no context. Edit the unit to add context before generating.'); return; }
     setError(''); setGenerating(true);
     try {
-      const { assignment } = await generateAssignment(unit.id, { source_count: genSources, question_count: genQuestions });
-      setAssignment(assignment); setSources(assignment.sources || []); setQuestions(assignment.questions || []);
+      const { assignment: updated } = await generateAssignment(unit.id, assignment.id, { source_count: genSources, question_count: genQuestions });
+      setAssignment(updated); setSources(updated.sources || []); setQuestions(updated.questions || []);
     } catch (err) { setError(err.response?.data?.error || 'Generation failed. Try again.'); }
     finally { setGenerating(false); }
   }
@@ -118,22 +355,22 @@ export default function AssignmentEditor({ unit, students = [] }) {
     if (sources.length === 0 && questions.length === 0) { setError('Add at least one source or question before saving.'); return; }
     setError(''); setSaving(true);
     try {
-      const { assignment } = await saveAssignment(unit.id, {
+      const { assignment: updated } = await saveAssignment(unit.id, assignment.id, {
         sources, questions, due_date: dueDate || null, essay_guide_enabled: essayGuideEnabled,
       });
-      setAssignment(assignment); setSources(assignment.sources || []); setQuestions(assignment.questions || []);
+      setAssignment(updated); setSources(updated.sources || []); setQuestions(updated.questions || []);
       setSaved(true); setTimeout(() => setSaved(false), 2500);
     } catch { setError('Failed to save assignment.'); }
     finally { setSaving(false); }
   }
 
   function openAddSource() { setEditSourceIdx(null); setSourceForm({ ...BLANK_SOURCE }); setSourceFormError(''); setSourceModal(true); }
-  function openEditSource(idx) { setEditSourceIdx(idx); setSourceForm({ ...sources[idx] }); setSourceFormError(''); setSourceModal(true); }
+  function openEditSource(idx) { setEditSourceIdx(idx); setSourceForm({ ...sources[idx], image_url: sources[idx].image_url || null }); setSourceFormError(''); setSourceModal(true); }
 
   function handleSourceSubmit() {
     if (!sourceForm.title.trim()) { setSourceFormError('Title is required.'); return; }
-    if (!sourceForm.content.trim()) { setSourceFormError('Content is required.'); return; }
-    const built = { ...sourceForm, title: sourceForm.title.trim(), content: sourceForm.content.trim(), order_index: editSourceIdx !== null ? editSourceIdx : sources.length };
+    if (!sourceForm.content.trim() && !sourceForm.image_url) { setSourceFormError('Content or an image is required.'); return; }
+    const built = { ...sourceForm, title: sourceForm.title.trim(), content: sourceForm.content.trim(), order_index: editSourceIdx !== null ? editSourceIdx : sources.length, image_url: sourceForm.image_url || null };
     if (editSourceIdx !== null) { setSources(s => s.map((x, i) => i === editSourceIdx ? built : x)); }
     else { setSources(s => [...s, built]); }
     setSourceModal(false);
@@ -144,7 +381,7 @@ export default function AssignmentEditor({ unit, students = [] }) {
   function openAddQuestion() { setEditQuestionIdx(null); setQForm({ ...BLANK_QUESTION, options: ['', '', '', ''] }); setQFormError(''); setQuestionModal(true); }
   function openEditQuestion(idx) {
     const q = questions[idx]; setEditQuestionIdx(idx);
-    setQForm({ question_text: q.question_text, type: q.type, options: q.options ? [...q.options] : ['', '', '', ''], correct_answer: q.correct_answer });
+    setQForm({ question_text: q.question_text, type: q.type, options: q.options ? [...q.options] : ['', '', '', ''], correct_answer: q.correct_answer, image_url: q.image_url || null });
     setQFormError(''); setQuestionModal(true);
   }
 
@@ -157,6 +394,7 @@ export default function AssignmentEditor({ unit, students = [] }) {
       options: qForm.type === 'multiple_choice' ? qForm.options.filter(o => o.trim()) : null,
       correct_answer: qForm.correct_answer.trim(),
       order_index: editQuestionIdx !== null ? editQuestionIdx : questions.length,
+      image_url: qForm.image_url || null,
     };
     if (editQuestionIdx !== null) { setQuestions(qs => qs.map((q, i) => i === editQuestionIdx ? built : q)); }
     else { setQuestions(qs => [...qs, built]); }
@@ -169,6 +407,11 @@ export default function AssignmentEditor({ unit, students = [] }) {
 
   return (
     <div>
+      {/* Back nav */}
+      <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, fontSize: 13, fontFamily: 'var(--font-body)', marginBottom: 18 }}>
+        ← All Assignments
+      </button>
+
       <div className="quiz-tab-bar">
         <button className={`quiz-tab ${activeTab === 'content' ? 'quiz-tab--active' : ''}`} onClick={() => setActiveTab('content')}>
           Content {(sources.length > 0 || questions.length > 0) && <span className="quiz-tab-badge">{sources.length + questions.length}</span>}
@@ -211,7 +454,6 @@ export default function AssignmentEditor({ unit, students = [] }) {
             </div>
           </div>
 
-          {/* Essay Guide toggle — only when there are essay questions */}
           {hasEssayQuestions && (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -244,7 +486,7 @@ export default function AssignmentEditor({ unit, students = [] }) {
           {sources.length === 0 && questions.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon"></div>
-              <h3>No assignment yet</h3>
+              <h3>No content yet</h3>
               <p>Generate sources and questions with AI, or add them manually.</p>
             </div>
           ) : (
@@ -269,6 +511,7 @@ export default function AssignmentEditor({ unit, students = [] }) {
                             <button className="btn btn-danger" style={{ padding: '3px 10px', fontSize: 12 }} onClick={() => removeSource(i)}>Remove</button>
                           </div>
                         </div>
+                        {s.image_url && <img src={s.image_url} alt="Source" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'contain', marginBottom: 8, display: 'block' }} />}
                         <p className="assignment-source-preview">{s.content}</p>
                       </div>
                     ))}
@@ -294,6 +537,7 @@ export default function AssignmentEditor({ unit, students = [] }) {
                           </div>
                         </div>
                         <div className="quiz-question-text quiz-question-text--markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(q.question_text) }} />
+                        {q.image_url && <img src={q.image_url} alt="Question" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'contain', marginBottom: 8 }} />}
                         {q.type === 'multiple_choice' && q.options && (
                           <div className="quiz-question-options">
                             {q.options.map((opt, oi) => (
@@ -322,9 +566,7 @@ export default function AssignmentEditor({ unit, students = [] }) {
       {/* ══════════ STUDENT RESULTS TAB ══════════ */}
       {activeTab === 'students' && (
         <>
-          {!assignment ? (
-            <div className="empty-state"><div className="empty-state-icon"></div><h3>No assignment yet</h3><p>Create and save an assignment first.</p></div>
-          ) : submissionsLoading ? (
+          {submissionsLoading ? (
             <LoadingSpinner fullPage label="Loading results…" />
           ) : submissions.length === 0 ? (
             <div className="empty-state"><div className="empty-state-icon"></div><h3>No submissions yet</h3><p>Students haven't submitted yet.</p></div>
@@ -439,7 +681,18 @@ export default function AssignmentEditor({ unit, students = [] }) {
           <input type="text" value={sourceForm.title} onChange={e => setSourceForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Letter from Abraham Lincoln to Horace Greeley, 1862" autoFocus />
         </div>
         <div className="field">
-          <label>Content</label>
+          <label>Image <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+          {sourceForm.image_url ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <img src={sourceForm.image_url} alt="Source" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'contain' }} />
+              <button type="button" className="btn btn-danger" style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: 12 }} onClick={() => setSourceForm(f => ({ ...f, image_url: null }))}>Remove Image</button>
+            </div>
+          ) : (
+            <QuestionImageUpload unitId={unit?.id} onUploaded={url => setSourceForm(f => ({ ...f, image_url: url }))} />
+          )}
+        </div>
+        <div className="field">
+          <label>Content <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional if image is provided)</span></label>
           <textarea rows={10} value={sourceForm.content} onChange={e => setSourceForm(f => ({ ...f, content: e.target.value }))} placeholder="Paste or type the full text of the document or reading…" style={{ fontFamily: 'var(--font-body)', lineHeight: 1.7 }} />
         </div>
       </Modal>
@@ -460,6 +713,15 @@ export default function AssignmentEditor({ unit, students = [] }) {
           <label>Question Text</label>
           <textarea rows={3} value={qForm.question_text} onChange={e => setQForm(f => ({ ...f, question_text: e.target.value }))} placeholder="Enter your question…" autoFocus />
         </div>
+        {qForm.image_url && (
+          <div className="field">
+            <label>Image</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <img src={qForm.image_url} alt="Question" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'contain' }} />
+              <button type="button" className="btn btn-danger" style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: 12 }} onClick={() => setQForm(f => ({ ...f, image_url: null }))}>Remove Image</button>
+            </div>
+          </div>
+        )}
         {qForm.type === 'multiple_choice' && (
           <div className="field">
             <label>Answer Options</label>
@@ -497,5 +759,29 @@ export default function AssignmentEditor({ unit, students = [] }) {
         </div>
       </Modal>
     </div>
+  );
+}
+
+// ─── ROOT EXPORT ──────────────────────────────────────────────────────────────
+
+export default function AssignmentEditor({ unit, students = [] }) {
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+
+  if (selectedAssignment) {
+    return (
+      <AssignmentEditorInner
+        unit={unit}
+        assignment={selectedAssignment}
+        students={students}
+        onBack={() => setSelectedAssignment(null)}
+      />
+    );
+  }
+
+  return (
+    <AssignmentListView
+      unit={unit}
+      onSelectAssignment={setSelectedAssignment}
+    />
   );
 }

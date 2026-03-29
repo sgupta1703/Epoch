@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import EssayGuide from '../../components/EssayGuide';
 import { getQuizzes, getQuizById, submitQuiz, getQuizResults } from '../../api/quiz';
@@ -366,13 +366,27 @@ function QuizTaker({ unitId, quizId, user, onBack }) {
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 
-export default function QuizView({ user }) {
-  const { unitId } = useParams();
-  const [selectedQuizId, setSelectedQuizId] = useState(null);
+export default function QuizView({ user, unit }) {
+  const { unitId: routeUnitId } = useParams();
+  const unitId = unit?.id || routeUnitId;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedQuizId = searchParams.get('quizId');
+
+  function handleSelectQuiz(quizId) {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('quizId', quizId);
+    setSearchParams(nextParams);
+  }
+
+  function handleBack() {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('quizId');
+    setSearchParams(nextParams);
+  }
 
   return selectedQuizId ? (
-    <QuizTaker unitId={unitId} quizId={selectedQuizId} user={user} onBack={() => setSelectedQuizId(null)} />
+    <QuizTaker unitId={unitId} quizId={selectedQuizId} user={user} onBack={handleBack} />
   ) : (
-    <QuizList unitId={unitId} user={user} onSelectQuiz={setSelectedQuizId} />
+    <QuizList unitId={unitId} user={user} onSelectQuiz={handleSelectQuiz} />
   );
 }

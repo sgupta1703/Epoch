@@ -10,6 +10,14 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
 });
 
+const FILE_SCOPES = new Set(['notes_attachment', 'assignment_asset']);
+
+function normalizeScope(scope, fallback = null) {
+  const normalized = String(scope || '').trim().toLowerCase();
+  if (!normalized) return fallback;
+  return FILE_SCOPES.has(normalized) ? normalized : '__invalid__';
+}
+
 async function teacherOwnsUnit(unitId, teacherId) {
   const { data: unit } = await supabase
     .from('units').select('classroom_id').eq('id', unitId).single();
@@ -34,6 +42,11 @@ async function studentCanAccessUnit(unitId, studentId) {
 router.get('/:unitId/files', authenticate, async (req, res, next) => {
   try {
     const { unitId } = req.params;
+    const scope = normalizeScope(req.query.scope);
+
+    if (scope === '__invalid__') {
+      return res.status(400).json({ error: 'Invalid file scope' });
+    }
 
     if (req.user.role === 'teacher') {
       const owns = await teacherOwnsUnit(unitId, req.user.id);
@@ -43,11 +56,15 @@ router.get('/:unitId/files', authenticate, async (req, res, next) => {
       if (!canAccess) return res.status(403).json({ error: 'Access denied' });
     }
 
-    const { data: files, error } = await supabase
+    let query = supabase
       .from('unit_files')
       .select('*')
       .eq('unit_id', unitId)
       .order('uploaded_at', { ascending: false });
+
+    if (scope) query = query.eq('scope', scope);
+
+    const { data: files, error } = await query;
 
     if (error) throw error;
 
@@ -67,6 +84,11 @@ router.get('/:unitId/files', authenticate, async (req, res, next) => {
 router.post('/:unitId/files', authenticate, requireRole('teacher'), upload.single('file'), async (req, res, next) => {
   try {
     const { unitId } = req.params;
+    const scope = normalizeScope(req.body.scope, 'notes_attachment');
+
+    if (scope === '__invalid__') {
+      return res.status(400).json({ error: 'Invalid file scope' });
+    }
 
     const owns = await teacherOwnsUnit(unitId, req.user.id);
     if (!owns) return res.status(403).json({ error: 'Access denied' });
@@ -74,8 +96,8 @@ router.post('/:unitId/files', authenticate, requireRole('teacher'), upload.singl
     if (!req.file) return res.status(400).json({ error: 'No file provided' });
 
     const { originalname, mimetype, buffer, size } = req.file;
-    const ext = originalname.split('.').pop();
-    const storagePath = `${unitId}/${Date.now()}-${originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const sanitizedName = originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storagePath = `${unitId}/${scope}/${Date.now()}-${sanitizedName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('unit-files')
@@ -87,6 +109,7 @@ router.post('/:unitId/files', authenticate, requireRole('teacher'), upload.singl
       .from('unit_files')
       .insert({
         unit_id: unitId,
+        scope,
         name: originalname,
         size,
         mime_type: mimetype,

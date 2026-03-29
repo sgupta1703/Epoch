@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { getQuizzes, getQuizById, getAllQuizResults, analyzeStudentQuiz, overrideSaGrades } from '../../api/quiz';
-import { getAssignment, getAllAssignmentResults } from '../../api/assignments';
+import { getAssignments, getAssignment, getAllAssignmentResults } from '../../api/assignments';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import '../../styles/pages.css';
 import './Teacher.css';
@@ -50,7 +50,7 @@ function studentInitial(name) {
   return name?.trim()?.[0]?.toUpperCase() || '?';
 }
 
-// Each unitEntry now has quizEntries: [{ quiz, submissions, submissionMap }]
+// Each unitEntry has quizEntries and assignmentEntries: [{ quiz/assignment, submissions, submissionMap }]
 function buildOverviewRows(unitEntries, students) {
   return students.map(student => {
     const cells = unitEntries.flatMap(entry => [
@@ -62,12 +62,14 @@ function buildOverviewRows(unitEntries, students) {
         score: qe.submissionMap.get(student.id)?.score ?? null,
         hasSubmission: qe.submissionMap.has(student.id),
       })),
-      {
+      ...entry.assignmentEntries.map(ae => ({
         kind: 'assignment',
         unitId: entry.unit.id,
-        score: entry.assignmentSubmissionMap.get(student.id)?.score ?? null,
-        hasSubmission: entry.assignmentSubmissionMap.has(student.id),
-      },
+        assignmentId: ae.assignment.id,
+        assignmentName: ae.assignment.name,
+        score: ae.submissionMap.get(student.id)?.score ?? null,
+        hasSubmission: ae.submissionMap.has(student.id),
+      })),
     ]);
 
     return {
@@ -90,7 +92,7 @@ function buildSummary(unitEntries, rows) {
   }, null);
 
   const gradedItems = unitEntries.reduce((sum, entry) =>
-    sum + entry.quizEntries.length + (entry.assignment ? 1 : 0), 0);
+    sum + entry.quizEntries.length + entry.assignmentEntries.length, 0);
 
   return {
     classAverage: allScores.length ? Math.round(allScores.reduce((s, v) => s + v, 0) / allScores.length) : null,
@@ -131,7 +133,7 @@ function SaOverrideForm({ questionId, current, onSave, onCancel, disabled }) {
   );
 }
 
-export default function CourseQuizResultsModal({ isOpen, onClose, units, students }) {
+export default function CourseQuizResultsModal({ isOpen, onClose, units, students, inline = false }) {
   const [unitEntries, setUnitEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState('overview');
@@ -166,13 +168,13 @@ export default function CourseQuizResultsModal({ isOpen, onClose, units, student
     try {
       const enrolledIds = new Set(students.map(s => s.id));
       const loaded = await Promise.all(units.map(async unit => {
-        const [quizzesResult, assignmentResult, assignmentSubsResult] = await Promise.allSettled([
+        const [quizzesResult, assignmentsResult] = await Promise.allSettled([
           getQuizzes(unit.id),
-          getAssignment(unit.id),
-          getAllAssignmentResults(unit.id),
+          getAssignments(unit.id),
         ]);
 
         const quizzesList = quizzesResult.status === 'fulfilled' ? (quizzesResult.value.quizzes || []) : [];
+        const assignmentsList = assignmentsResult.status === 'fulfilled' ? (assignmentsResult.value.assignments || []) : [];
 
         // For each quiz with questions, load its submissions
         const quizEntries = await Promise.all(
@@ -189,36 +191,40 @@ export default function CourseQuizResultsModal({ isOpen, onClose, units, student
             })
         );
 
-        const assignment = assignmentResult.status === 'fulfilled' ? assignmentResult.value.assignment || null : null;
-        const assignmentSubmissions = assignmentSubsResult.status === 'fulfilled'
-          ? (assignmentSubsResult.value.submissions || []).filter(s => enrolledIds.has(s.student_id))
-          : [];
+        // For each assignment with questions, load its submissions
+        const assignmentEntries = await Promise.all(
+          assignmentsList
+            .filter(a => a.question_count > 0)
+            .map(async assignment => {
+              try {
+                const { submissions } = await getAllAssignmentResults(unit.id, assignment.id);
+                const filtered = (submissions || []).filter(s => enrolledIds.has(s.student_id));
+                return { assignment, submissions: filtered, submissionMap: new Map(filtered.map(s => [s.student_id, s])) };
+              } catch {
+                return { assignment, submissions: [], submissionMap: new Map() };
+              }
+            })
+        );
 
-        return {
-          unit,
-          quizEntries,
-          assignment: assignment?.questions?.length ? assignment : null,
-          assignmentSubmissions,
-          assignmentSubmissionMap: new Map(assignmentSubmissions.map(s => [s.student_id, s])),
-        };
+        return { unit, quizEntries, assignmentEntries };
       }));
 
-      setUnitEntries(loaded.filter(entry => entry.quizEntries.length > 0 || entry.assignment));
+      setUnitEntries(loaded.filter(entry => entry.quizEntries.length > 0 || entry.assignmentEntries.length > 0));
     } finally {
       setLoading(false);
     }
   }
 
-  async function openDetail(student, entry, kind, quizId = null) {
+  async function openDetail(student, entry, kind, itemId = null) {
     let submission, content;
     if (kind === 'quiz') {
-      const qe = entry.quizEntries.find(qe => qe.quiz.id === quizId);
+      const qe = entry.quizEntries.find(qe => qe.quiz.id === itemId);
       submission = qe?.submissionMap.get(student.id);
       if (!submission) return;
       setDetailLoading(true);
       setView('detail');
       try {
-        const { quiz } = await getQuizById(entry.unit.id, quizId);
+        const { quiz } = await getQuizById(entry.unit.id, itemId);
         content = quiz;
       } catch {
         content = qe?.quiz;
@@ -226,13 +232,22 @@ export default function CourseQuizResultsModal({ isOpen, onClose, units, student
         setDetailLoading(false);
       }
     } else {
-      submission = entry.assignmentSubmissionMap.get(student.id);
-      content = entry.assignment;
-      if (!submission || !content) return;
+      const ae = entry.assignmentEntries.find(ae => ae.assignment.id === itemId);
+      submission = ae?.submissionMap.get(student.id);
+      if (!submission) return;
+      setDetailLoading(true);
       setView('detail');
+      try {
+        const { assignment } = await getAssignment(entry.unit.id, itemId);
+        content = assignment;
+      } catch {
+        content = ae?.assignment;
+      } finally {
+        setDetailLoading(false);
+      }
     }
 
-    setSelectedDetail({ student, entry, kind, quizId, submission, content });
+    setSelectedDetail({ student, entry, kind, quizId: kind === 'quiz' ? itemId : null, assignmentId: kind === 'assignment' ? itemId : null, submission, content });
     setAnalysis(null);
     setAnalysisError('');
     setOverrideOpen(null);
@@ -306,43 +321,49 @@ export default function CourseQuizResultsModal({ isOpen, onClose, units, student
     ? `${selectedDetail.student.display_name} — ${selectedDetail.entry.unit.title}`
     : 'Class Performance';
 
+  const content = loading ? (
+    <LoadingSpinner fullPage label="Loading class performance..." />
+  ) : view === 'detail' ? (
+    detailLoading ? (
+      <LoadingSpinner fullPage label="Loading submission..." />
+    ) : selectedDetail ? (
+      <DetailView
+        detail={selectedDetail}
+        analysis={analysis}
+        analysisError={analysisError}
+        analyzing={analyzing}
+        overrideError={overrideError}
+        overrideOpen={overrideOpen}
+        overrideSaving={overrideSaving}
+        onAnalyze={handleAnalyze}
+        onBack={() => { setView('overview'); setSelectedDetail(null); setAnalysis(null); setAnalysisError(''); setOverrideOpen(null); setOverrideError(''); }}
+        onSaveOverride={handleSaveOverride}
+        onSetOverrideOpen={setOverrideOpen}
+        onClearOverrideError={() => setOverrideError('')}
+      />
+    ) : null
+  ) : (
+    <OverviewView
+      unitEntries={unitEntries}
+      rows={filteredRows}
+      summary={summary}
+      search={search}
+      contentFilter={contentFilter}
+      selectedStudentId={effectiveSelectedStudentId}
+      onSearchChange={setSearch}
+      onFilterChange={setContentFilter}
+      onSelectStudent={setSelectedStudentId}
+      onOpenDetail={openDetail}
+    />
+  );
+
+  if (inline) {
+    return <div className="course-quiz-results-inline">{content}</div>;
+  }
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="xxl">
-      {loading ? (
-        <LoadingSpinner fullPage label="Loading class performance..." />
-      ) : view === 'detail' ? (
-        detailLoading ? (
-          <LoadingSpinner fullPage label="Loading submission..." />
-        ) : selectedDetail ? (
-          <DetailView
-            detail={selectedDetail}
-            analysis={analysis}
-            analysisError={analysisError}
-            analyzing={analyzing}
-            overrideError={overrideError}
-            overrideOpen={overrideOpen}
-            overrideSaving={overrideSaving}
-            onAnalyze={handleAnalyze}
-            onBack={() => { setView('overview'); setSelectedDetail(null); setAnalysis(null); setAnalysisError(''); setOverrideOpen(null); setOverrideError(''); }}
-            onSaveOverride={handleSaveOverride}
-            onSetOverrideOpen={setOverrideOpen}
-            onClearOverrideError={() => setOverrideError('')}
-          />
-        ) : null
-      ) : (
-        <OverviewView
-          unitEntries={unitEntries}
-          rows={filteredRows}
-          summary={summary}
-          search={search}
-          contentFilter={contentFilter}
-          selectedStudentId={effectiveSelectedStudentId}
-          onSearchChange={setSearch}
-          onFilterChange={setContentFilter}
-          onSelectStudent={setSelectedStudentId}
-          onOpenDetail={openDetail}
-        />
-      )}
+      {content}
     </Modal>
   );
 }
@@ -361,7 +382,7 @@ function OverviewView({ unitEntries, rows, summary, search, contentFilter, selec
   const showQuiz = contentFilter === 'all' || contentFilter === 'quiz';
   const showAssignment = contentFilter === 'all' || contentFilter === 'assignment';
   const visibleUnits = unitEntries.filter(entry =>
-    (showQuiz && entry.quizEntries.length > 0) || (showAssignment && entry.assignment)
+    (showQuiz && entry.quizEntries.length > 0) || (showAssignment && entry.assignmentEntries.length > 0)
   );
   const selectedRow = rows.find(row => row.student.id === selectedStudentId) || null;
 
@@ -387,7 +408,12 @@ function OverviewView({ unitEntries, rows, summary, search, contentFilter, selec
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
-          <input type="text" value={search} onChange={e => onSearchChange(e.target.value)} placeholder="Search students" style={{ width: 220, marginBottom: 0 }} />
+          <div className="students-search-wrap">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5l3 3"/>
+            </svg>
+            <input className="students-search" type="text" value={search} onChange={e => onSearchChange(e.target.value)} placeholder="Search students…" />
+          </div>
           <div style={{ display: 'inline-flex', padding: 4, background: '#fff', border: '1px solid var(--border)', borderRadius: 999 }}>
             {[{ key: 'all', label: 'All Work' }, { key: 'quiz', label: 'Quizzes' }, { key: 'assignment', label: 'Assignments' }].map(option => (
               <button key={option.key} onClick={() => onFilterChange(option.key)}
@@ -460,7 +486,7 @@ function DetailView({ detail, analysis, analysisError, analyzing, overrideError,
             <div>
               <div className="quiz-results-detail-name">{student.display_name}</div>
               <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-                {entry.unit.title} — {kind === 'quiz' ? content?.name || 'Quiz' : 'Assignment'}<br />
+                {entry.unit.title} — {kind === 'quiz' ? content?.name || 'Quiz' : content?.name || 'Assignment'}<br />
                 Submitted {formatSubmittedAt(submission)}
               </div>
             </div>
@@ -622,7 +648,7 @@ function StudentOverviewBoard({ row, unitEntries, showQuiz, showAssignment, onOp
   }
 
   const allQuizScores = unitEntries.flatMap(e => e.quizEntries.map(qe => qe.submissionMap.get(row.student.id)?.score)).filter(s => s !== null && s !== undefined);
-  const assignmentScores = unitEntries.map(e => e.assignmentSubmissionMap.get(row.student.id)?.score).filter(s => s !== null && s !== undefined);
+  const assignmentScores = unitEntries.flatMap(e => e.assignmentEntries.map(ae => ae.submissionMap.get(row.student.id)?.score)).filter(s => s !== null && s !== undefined);
   const quizAverage = allQuizScores.length ? Math.round(allQuizScores.reduce((s, v) => s + v, 0) / allQuizScores.length) : null;
   const assignmentAverage = assignmentScores.length ? Math.round(assignmentScores.reduce((s, v) => s + v, 0) / assignmentScores.length) : null;
 
@@ -646,17 +672,17 @@ function StudentOverviewBoard({ row, unitEntries, showQuiz, showAssignment, onOp
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {unitEntries.map(entry => {
           const visibleQuizEntries = showQuiz ? entry.quizEntries : [];
-          const showAsgn = showAssignment && entry.assignment;
-          if (visibleQuizEntries.length === 0 && !showAsgn) return null;
+          const visibleAssignmentEntries = showAssignment ? entry.assignmentEntries : [];
+          if (visibleQuizEntries.length === 0 && visibleAssignmentEntries.length === 0) return null;
           const isOpen = openUnits.has(entry.unit.id);
 
           // Score summary for collapsed header
           const unitQuizScores = visibleQuizEntries.map(qe => qe.submissionMap.get(row.student.id)?.score).filter(s => s !== null && s !== undefined);
-          const unitAsgnScore = showAsgn ? entry.assignmentSubmissionMap.get(row.student.id)?.score : undefined;
-          const allUnitScores = [...unitQuizScores, ...(unitAsgnScore !== undefined ? [unitAsgnScore] : [])];
+          const unitAsgnScores = visibleAssignmentEntries.map(ae => ae.submissionMap.get(row.student.id)?.score).filter(s => s !== null && s !== undefined);
+          const allUnitScores = [...unitQuizScores, ...unitAsgnScores];
           const unitAvg = allUnitScores.length ? Math.round(allUnitScores.reduce((s, v) => s + v, 0) / allUnitScores.length) : null;
-          const submittedCount = visibleQuizEntries.filter(qe => qe.submissionMap.has(row.student.id)).length + (showAsgn && entry.assignmentSubmissionMap.has(row.student.id) ? 1 : 0);
-          const totalCount = visibleQuizEntries.length + (showAsgn ? 1 : 0);
+          const submittedCount = visibleQuizEntries.filter(qe => qe.submissionMap.has(row.student.id)).length + visibleAssignmentEntries.filter(ae => ae.submissionMap.has(row.student.id)).length;
+          const totalCount = visibleQuizEntries.length + visibleAssignmentEntries.length;
 
           return (
             <div key={entry.unit.id} style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: '#fcfaf6' }}>
@@ -673,6 +699,14 @@ function StudentOverviewBoard({ row, unitEntries, showQuiz, showAssignment, onOp
               {isOpen && (
                 <div style={{ padding: 14 }}>
                   {visibleQuizEntries.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', padding: '0 6px' }}>Quizzes</span>
+                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                    </div>
+                  )}
+
+                  {visibleQuizEntries.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(visibleQuizEntries.length, 3)}, minmax(0, 1fr))`, gap: 12 }}>
                       {visibleQuizEntries.map(qe => (
                         <SubmissionOverviewCard
@@ -687,22 +721,27 @@ function StudentOverviewBoard({ row, unitEntries, showQuiz, showAssignment, onOp
                     </div>
                   )}
 
-                  {visibleQuizEntries.length > 0 && showAsgn && (
+                  {visibleQuizEntries.length > 0 && visibleAssignmentEntries.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0 12px' }}>
                       <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', padding: '0 6px' }}>Assignment</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', padding: '0 6px' }}>Assignments</span>
                       <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                     </div>
                   )}
 
-                  {showAsgn && (
-                    <SubmissionOverviewCard
-                      label="Assignment"
-                      submission={entry.assignmentSubmissionMap.get(row.student.id)}
-                      accent="#fef3cd"
-                      accentColor="#7a5c00"
-                      onOpen={() => onOpenDetail(row.student, entry, 'assignment')}
-                    />
+                  {visibleAssignmentEntries.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(visibleAssignmentEntries.length, 3)}, minmax(0, 1fr))`, gap: 12 }}>
+                      {visibleAssignmentEntries.map(ae => (
+                        <SubmissionOverviewCard
+                          key={ae.assignment.id}
+                          label={ae.assignment.name}
+                          submission={ae.submissionMap.get(row.student.id)}
+                          accent="#fef3cd"
+                          accentColor="#7a5c00"
+                          onOpen={() => onOpenDetail(row.student, entry, 'assignment', ae.assignment.id)}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
               )}

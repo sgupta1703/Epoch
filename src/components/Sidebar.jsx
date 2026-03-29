@@ -243,8 +243,13 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
 
       {/* ── Rail ── */}
       <div className="sidebar-rail">
-        {/* Epoch logomark */}
-
+        <div className="rail-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M14.9 9.1 13.1 13.1 9.1 14.9 10.9 10.9 14.9 9.1Z" />
+            <path d="M12 4.8v1.7M12 17.5v1.7M4.8 12h1.7M17.5 12h1.7" />
+          </svg>
+        </div>
 
         <div className="rail-divider" />
 
@@ -299,6 +304,7 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
           <div className="panel-header" onClick={() => navigate(`${classroomBase}/${visiblePanelId}`)}>
             <div className="panel-classroom-initials">{getInitials(visiblePanelClassroom.name)}</div>
             <div className="panel-classroom-info">
+              <div className="panel-classroom-eyebrow">{isTeacher ? 'Classroom' : 'Study Space'}</div>
               <div className="panel-classroom-name">{visiblePanelClassroom.name}</div>
               {isTeacher && visiblePanelClassroom.join_code && (
                 <div className="panel-classroom-code">{visiblePanelClassroom.join_code}</div>
