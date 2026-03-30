@@ -399,6 +399,7 @@ export default function EpochArchivist() {
         onClick={isOpen || animState === 'opening' ? handleClose : handleOpen}
         aria-expanded={isOpen}
         aria-label="Open Mr. Curator"
+        data-onboarding="curator-btn"
       >
         <span className="epoch-archivist-trigger-inner">
           <span className="epoch-archivist-trigger-mark" style={{ opacity: showLabel ? 0 : 1 }}>C</span>

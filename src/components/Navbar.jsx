@@ -93,6 +93,7 @@ export default function Navbar({ user }) {
                 className={`navbar-avatar${menuOpen ? ' navbar-avatar--open' : ''}`}
                 onClick={() => setMenuOpen(o => !o)}
                 aria-label="User menu"
+                data-onboarding="profile-btn"
               >
                 {user.display_name?.[0]?.toUpperCase()}
               </button>
