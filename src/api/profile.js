@@ -24,3 +24,23 @@ export async function leaveClassroom(classroomId) {
   const res = await api.delete(`/api/profile/classes/${classroomId}`);
   return res.data;
 }
+
+export async function getTeacherStats() {
+  const res = await api.get('/api/profile/teacher/stats');
+  return res.data;
+}
+
+export async function getTeacherClasses() {
+  const res = await api.get('/api/profile/teacher/classes');
+  return res.data;
+}
+
+export async function deleteTeacherClass(classroomId) {
+  const res = await api.delete(`/api/profile/teacher/classes/${classroomId}`);
+  return res.data;
+}
+
+export async function renameTeacherClass(classroomId, name) {
+  const res = await api.patch(`/api/profile/teacher/classes/${classroomId}`, { name });
+  return res.data;
+}
