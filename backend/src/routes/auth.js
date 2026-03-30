@@ -58,7 +58,10 @@ router.post('/login', async (req, res, next) => {
     res.json({
       access_token: data.session.access_token,
       refresh_token: data.session.refresh_token,
-      user: profile
+      user: {
+        ...profile,
+        email: data.user.email || null,
+      }
     });
   } catch (err) {
     next(err);
