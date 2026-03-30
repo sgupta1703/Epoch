@@ -336,30 +336,34 @@ router.put('/', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'Nothing to update' });
     }
 
+    const trimmedDisplayName = display_name?.trim();
+    const normalizedEmail = email?.trim().toLowerCase();
+
     // Update profile table
     const profileUpdate = {};
-    if (display_name) profileUpdate.display_name = display_name.trim();
-    if (email) profileUpdate.email = email.trim().toLowerCase();
+    if (trimmedDisplayName) profileUpdate.display_name = trimmedDisplayName;
 
-    const { error: profileErr } = await supabase
-      .from('profiles')
-      .update(profileUpdate)
-      .eq('id', userId);
+    if (Object.keys(profileUpdate).length > 0) {
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .update(profileUpdate)
+        .eq('id', userId);
 
-    if (profileErr) throw profileErr;
+      if (profileErr) throw profileErr;
+    }
 
     // Also update Supabase auth user if email changed
-    if (email) {
+    if (normalizedEmail) {
       const { error: authErr } = await supabase.auth.admin.updateUserById(userId, {
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
       });
       if (authErr) throw authErr;
     }
 
     // Update user_metadata display_name
-    if (display_name) {
+    if (trimmedDisplayName) {
       const { error: metaErr } = await supabase.auth.admin.updateUserById(userId, {
-        user_metadata: { display_name: display_name.trim() },
+        user_metadata: { display_name: trimmedDisplayName },
       });
       if (metaErr) throw metaErr;
     }
@@ -373,7 +377,12 @@ router.put('/', authenticate, async (req, res, next) => {
 
     if (fetchErr) throw fetchErr;
 
-    res.json({ user: profile });
+    res.json({
+      user: {
+        ...profile,
+        email: normalizedEmail || req.user.email || null,
+      },
+    });
   } catch (err) { next(err); }
 });
 
