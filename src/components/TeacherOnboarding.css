@@ -1,0 +1,183 @@
+/* ── Teacher Onboarding Tour ─────────────────────────────────────────── */
+
+/* Full-screen dark backdrop — sits at z-9000.
+   The spotlighted element is lifted to z-9001 above it via JS,
+   so it appears naturally with no box or border added. */
+.ob-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(10, 8, 6, 0.72);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  pointer-events: all;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+  animation: ob-appear 0.2s ease;
+}
+
+.ob-backdrop.ob-fading { opacity: 0; }
+
+@keyframes ob-appear {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Welcome modal card */
+.ob-welcome {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9002;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 36px 36px 28px;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.22),
+    0 4px  12px rgba(0, 0, 0, 0.12);
+  pointer-events: all;
+  font-family: var(--font-body);
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.ob-welcome.ob-fading { opacity: 0; }
+
+.ob-welcome-eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rust);
+  margin-bottom: 10px;
+}
+
+.ob-welcome-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-bottom: 14px;
+}
+
+.ob-welcome-body {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+.ob-welcome-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Tooltip card — z-index set inline (9002) so it sits above the lifted element (9001) */
+.ob-tooltip {
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px 16px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.18),
+    0 2px  8px rgba(0, 0, 0, 0.10);
+  pointer-events: all;
+  font-family: var(--font-body);
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.ob-tooltip.ob-fading { opacity: 0; }
+
+/* Step progress dots */
+.ob-step-dots {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 11px;
+}
+
+.ob-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.ob-dot--active {
+  background: var(--rust);
+  transform: scale(1.2);
+}
+
+.ob-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 7px;
+  line-height: 1.3;
+}
+
+.ob-body {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+  margin-bottom: 15px;
+}
+
+.ob-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ob-skip {
+  font-size: 12px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-body);
+  transition: color 0.15s;
+}
+
+.ob-skip:hover { color: var(--ink); }
+
+.ob-next {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  background: var(--rust);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background 0.15s;
+}
+
+.ob-next:hover { background: var(--rust-dark); }
+
+.ob-next--lg {
+  font-size: 14px;
+  padding: 9px 22px;
+}
+
+.ob-waiting {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Raise the classroom-creation modal above the backdrop */
+body.ob-active .modal-overlay {
+  z-index: 9500 !important;
+}

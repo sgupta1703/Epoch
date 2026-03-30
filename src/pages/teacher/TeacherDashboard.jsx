@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import Modal, { ModalActions } from '../../components/Modal';
+import TeacherOnboarding from '../../components/TeacherOnboarding';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {
   getClassrooms,
@@ -35,6 +36,9 @@ export default function TeacherDashboard({ user }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const { settings } = useSettings(DEFAULT_TEACHER_SETTINGS);
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => localStorage.getItem('epoch_teacher_onboarding') === 'needed'
+  );
 
   useEffect(() => {
     fetchClassrooms();
@@ -129,7 +133,11 @@ export default function TeacherDashboard({ user }) {
               <p className="page-eyebrow">Educator Portal</p>
               <h1 className="page-title">My Courses</h1>
             </div>
-            <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
+            <button
+              className="btn btn-primary"
+              onClick={() => setCreateOpen(true)}
+              data-onboarding="new-course"
+            >
               + New Course
             </button>
           </div>
@@ -262,6 +270,10 @@ export default function TeacherDashboard({ user }) {
           A unique join code will be generated automatically.
         </p>
       </Modal>
+
+      {showOnboarding && (
+        <TeacherOnboarding onDone={() => setShowOnboarding(false)} />
+      )}
 
       {/* Delete Confirm Modal */}
       <Modal

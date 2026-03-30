@@ -51,6 +51,9 @@ export default function Register({ onLogin }) {
       await register(form);
       // Auto-login after registration
       const { user } = await login({ email: form.email, password: form.password });
+      if (user.role === 'teacher') {
+        localStorage.setItem('epoch_teacher_onboarding', 'needed');
+      }
       onLogin(user);
       navigate(user.role === 'teacher' ? '/teacher' : '/student');
     } catch (err) {
