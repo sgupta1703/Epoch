@@ -17,6 +17,7 @@ import StudentDashboard from './pages/student/StudentDashboard';
 import StudentClassroom from './pages/student/StudentClassroom';
 import StudentUnit from './pages/student/StudentUnit';
 import StudentProfile from './pages/student/StudentProfile';
+import TeacherProfile from './pages/teacher/TeacherProfile';
 import SettingsPage from './pages/settings/SettingsPage';
 
 function RequireAuth() {
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route element={<RequireAuth />}>
           <Route element={<RequireRole role="teacher" />}>
             <Route path="/teacher" element={<TeacherDashboard user={user} />} />
+            <Route path="/teacher/profile" element={<TeacherProfile user={user} />} />
             <Route path="/teacher/settings" element={<SettingsPage user={user} role="teacher" />} />
             <Route path="/teacher/classroom/:classroomId" element={<ClassroomView user={user} />} />
             <Route path="/teacher/classroom/:classroomId/unit/:unitId" element={<UnitEditor user={user} />} />

@@ -12,6 +12,7 @@ export default function Navbar({ user }) {
 
   const isTeacher = user?.role === 'teacher';
   const dashboardPath = isTeacher ? '/teacher' : '/student';
+  const profilePath = isTeacher ? '/teacher/profile' : '/student/profile';
   const settingsPath = isTeacher ? '/teacher/settings' : '/student/settings';
 
   // Build breadcrumb from path
@@ -121,19 +122,17 @@ export default function Navbar({ user }) {
                 </svg>
                 Dashboard
               </Link>
-              {!isTeacher && (
-                <Link
-                  to="/student/profile"
-                  className="navbar-dropdown-item"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="8" cy="5.5" r="3" />
-                    <path d="M2.5 14.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
-                  </svg>
-                  Profile
-                </Link>
-              )}
+              <Link
+                to={profilePath}
+                className="navbar-dropdown-item"
+                onClick={() => setMenuOpen(false)}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8" cy="5.5" r="3" />
+                  <path d="M2.5 14.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+                </svg>
+                Profile
+              </Link>
               <Link
                 to={settingsPath}
                 className="navbar-dropdown-item"
