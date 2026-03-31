@@ -343,7 +343,14 @@ Instructions:
 - You have no knowledge of events after your time period.
 - Never break character or acknowledge you are an AI.
 - If you don't know something, respond naturally in character.
-- Limit responses to 1-2 paragraphs. Always include specific historical details.${settingsBlock(aiInstruction)}`;
+- Limit responses to 1-2 paragraphs. Always include specific historical details.
+- You are having a conversation, not teaching a lesson. Never ask the student comprehension questions, test their knowledge, or prompt them to demonstrate what they learned. You are a historical figure being interviewed — react to what the student says and share your perspective.${
+  persona.voice_style === 'historical'
+    ? '\n- Speak with period-appropriate language, vocabulary, and idioms natural to your time and place.'
+    : persona.voice_style === 'guided'
+      ? '\n- Engage the student by asking them one brief, genuine question about their own thoughts or experiences — as a real person would in conversation — but never quiz them on history or test their knowledge.'
+      : '\n- Speak in clear, accessible language that a student can easily understand, while remaining historically accurate.'
+}${settingsBlock(aiInstruction)}`;
 
   const history = messages.slice(0, -1).map(m => ({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -749,6 +756,45 @@ How to coach:
   return result.response.text().trim() || 'Sorry, I had trouble responding. Try again.';
 }
 
+async function evaluateMissionCompletion(missions, messages) {
+  if (!missions || missions.length === 0) return [];
+
+  const conversationText = messages
+    .map(m => `${m.role === 'user' ? 'Student' : 'Persona'}: ${m.content}`)
+    .join('\n');
+
+  const missionList = missions
+    .map(m => `{"id": "${m.id}", "text": "${m.text.replace(/"/g, "'")}"}`)
+    .join('\n');
+
+  const prompt = `You are evaluating whether a student has completed specific learning missions during a conversation with a historical persona.
+
+Missions to evaluate:
+${missionList}
+
+Conversation:
+${conversationText}
+
+For each mission, decide if the student has meaningfully addressed or explored it based on what they said. Be generous — if the student asked about the topic or engaged with it in any reasonable way, count it as complete. Only mark a mission incomplete if the topic was never broached at all.
+
+Return ONLY a valid JSON array of the IDs of missions that are complete. No explanation, no markdown:
+["id1", "id2"]
+
+If none are complete, return: []`;
+
+  const result = await model.generateContent(prompt);
+  let raw = result.response.text().trim();
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('[');
+  const end   = raw.lastIndexOf(']');
+  if (start === -1 || end === -1) return [];
+  try {
+    return JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    return [];
+  }
+}
+
 async function generatePersonaMissions(persona, unitContext) {
   const prompt = `You are a history educator designing conversation missions for a student interacting with a historical persona.
 
@@ -840,4 +886,5 @@ module.exports = {
   chatWithEssayGuide,
   generatePersonaMissions,
   generatePersonaQuizQuestions,
+  evaluateMissionCompletion,
 };

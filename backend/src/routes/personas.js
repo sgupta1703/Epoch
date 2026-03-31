@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabaseClient');
-const { chatWithPersona, generatePersonaMissions, generatePersonaQuizQuestions, gradeShortAnswer } = require('../services/claude');
+const { chatWithPersona, generatePersonaMissions, generatePersonaQuizQuestions, gradeShortAnswer, evaluateMissionCompletion } = require('../services/claude');
 const { getUserSettings, buildStudentAiInstruction } = require('../services/userSettings');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
@@ -23,6 +23,23 @@ async function studentCanAccessUnit(unitId, studentId) {
   const { data: enrollment } = await supabase
     .from('classroom_students').select('classroom_id')
     .eq('classroom_id', unit.classroom_id).eq('student_id', studentId).single();
+  return !!enrollment;
+}
+
+async function teacherCanViewStudentConversation(unitId, teacherId, studentId) {
+  const { data: unit } = await supabase
+    .from('units').select('classroom_id').eq('id', unitId).single();
+  if (!unit) return false;
+
+  const { data: classroom } = await supabase
+    .from('classrooms').select('id')
+    .eq('id', unit.classroom_id).eq('teacher_id', teacherId).single();
+  if (!classroom) return false;
+
+  const { data: enrollment } = await supabase
+    .from('classroom_students').select('student_id')
+    .eq('classroom_id', unit.classroom_id).eq('student_id', studentId).single();
+
   return !!enrollment;
 }
 
@@ -58,13 +75,14 @@ router.get('/:unitId/personas', authenticate, async (req, res, next) => {
 router.post('/:unitId/personas', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
     const { unitId } = req.params;
-    const { name, description, min_turns, due_date, year_start, year_end, location, mode, missions } = req.body;
+    const { name, description, min_turns, due_date, year_start, year_end, location, mode, missions, emoji, voice_style } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
     if (!year_start) return res.status(400).json({ error: 'year_start is required' });
     const owns = await teacherOwnsUnit(unitId, req.user.id);
     if (!owns) return res.status(403).json({ error: 'Access denied' });
     const validModes = ['free', 'missions', 'quiz'];
     const personaMode = validModes.includes(mode) ? mode : 'free';
+    const validVoiceStyles = ['accessible', 'historical', 'guided'];
     const { data, error } = await supabase
       .from('personas')
       .insert({
@@ -78,6 +96,8 @@ router.post('/:unitId/personas', authenticate, requireRole('teacher'), async (re
         location: location || null,
         mode: personaMode,
         missions: missions || [],
+        emoji: emoji || null,
+        voice_style: validVoiceStyles.includes(voice_style) ? voice_style : 'accessible',
       })
       .select().single();
     if (error) throw error;
@@ -88,7 +108,7 @@ router.post('/:unitId/personas', authenticate, requireRole('teacher'), async (re
 // PATCH /api/personas/:id
 router.patch('/:id', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
-    const { name, description, min_turns, due_date, year_start, year_end, location, mode, missions } = req.body;
+    const { name, description, min_turns, due_date, year_start, year_end, location, mode, missions, emoji, voice_style } = req.body;
     const { data: persona } = await supabase
       .from('personas').select('unit_id').eq('id', req.params.id).single();
     if (!persona) return res.status(404).json({ error: 'Persona not found' });
@@ -107,6 +127,11 @@ router.patch('/:id', authenticate, requireRole('teacher'), async (req, res, next
       updates.mode = validModes.includes(mode) ? mode : 'free';
     }
     if (missions    !== undefined) updates.missions    = missions;
+    if (emoji       !== undefined) updates.emoji       = emoji || null;
+    if (voice_style !== undefined) {
+      const validVoiceStyles = ['accessible', 'historical', 'guided'];
+      updates.voice_style = validVoiceStyles.includes(voice_style) ? voice_style : 'accessible';
+    }
     const { data, error } = await supabase
       .from('personas').update(updates).eq('id', req.params.id).select().single();
     if (error) throw error;
@@ -179,6 +204,18 @@ router.post('/:id/chat', authenticate, requireRole('student'), async (req, res, 
     const finalMessages = [...updatedMessages, { role: 'assistant', content: reply }];
     const newTurnCount = (conversation?.turn_count || 0) + 1;
     const completed = newTurnCount >= persona.min_turns;
+
+    // Auto-evaluate mission completion for missions-mode personas
+    let newCompletedMissions = conversation?.completed_missions || [];
+    if (persona.mode === 'missions' && persona.missions?.length > 0) {
+      try {
+        const evaluated = await evaluateMissionCompletion(persona.missions, finalMessages);
+        // Merge with previously completed — never un-complete a mission
+        const merged = new Set([...newCompletedMissions, ...evaluated]);
+        newCompletedMissions = [...merged];
+      } catch { /* keep existing if evaluation fails */ }
+    }
+
     const { error } = await supabase
       .from('conversations')
       .upsert(
@@ -188,13 +225,13 @@ router.post('/:id/chat', authenticate, requireRole('student'), async (req, res, 
           messages: finalMessages,
           turn_count: newTurnCount,
           completed,
-          completed_missions: conversation?.completed_missions || [],
+          completed_missions: newCompletedMissions,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'persona_id,student_id' }
       ).select().single();
     if (error) throw error;
-    res.json({ reply, turn_count: newTurnCount, completed, min_turns: persona.min_turns });
+    res.json({ reply, turn_count: newTurnCount, completed, min_turns: persona.min_turns, completed_missions: newCompletedMissions });
   } catch (err) { next(err); }
 });
 
@@ -235,8 +272,8 @@ router.get('/:id/conversation', authenticate, async (req, res, next) => {
       const { data: persona } = await supabase
         .from('personas').select('unit_id').eq('id', req.params.id).single();
       if (!persona) return res.status(404).json({ error: 'Persona not found' });
-      const owns = await teacherOwnsUnit(persona.unit_id, req.user.id);
-      if (!owns) return res.status(403).json({ error: 'Access denied' });
+      const canView = await teacherCanViewStudentConversation(persona.unit_id, req.user.id, student_id);
+      if (!canView) return res.status(403).json({ error: 'Access denied' });
       targetStudentId = student_id;
     }
     const { data: conversation, error } = await supabase

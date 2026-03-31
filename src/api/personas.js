@@ -5,7 +5,7 @@ export async function getPersonas(unitId) {
   return res.data;
 }
 
-export async function createPersona(unitId, { name, description, min_turns, due_date, year_start, year_end, location, mode, missions }) {
+export async function createPersona(unitId, { name, description, min_turns, due_date, year_start, year_end, location, mode, missions, emoji, voice_style }) {
   const res = await api.post(`/api/units/${unitId}/personas`, {
     name,
     description: description || null,
@@ -16,6 +16,8 @@ export async function createPersona(unitId, { name, description, min_turns, due_
     location: location || null,
     mode: mode || 'free',
     missions: missions || [],
+    emoji: emoji || null,
+    voice_style: voice_style || 'accessible',
   });
   return res.data;
 }

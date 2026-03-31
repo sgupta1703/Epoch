@@ -2,20 +2,26 @@ import { useState, useEffect } from 'react';
 import AppDatePicker from '../../components/AppDatePicker';
 import Modal, { ModalActions } from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import PersonaConversationsView from './PersonaConversationsView';
 import { getPersonas, createPersona, updatePersona, deletePersona, generateMissions } from '../../api/personas';
 import '../../styles/pages.css';
 import './Teacher.css';
 
-const PERSONA_EMOJIS = ['👨‍⚖️','👩‍🌾','🪖','👸','🤴','⚔️','🧙','🏛️','✍️','🕊️'];
+const PERSONA_EMOJIS = [
+  '👨‍⚖️','👩‍🌾','🪖','👸','🤴','⚔️','🧙','🏛️','✍️','🕊️',
+  '🎖️','⚓','🧑‍🎨','👩‍💼','🏺','🗡️','🛡️','📯','⛪','🌍',
+];
 
 const BLANK_FORM = {
   name: '',
   description: '',
+  emoji: '👨‍⚖️',
   min_turns: 5,
   due_date: '',
   year_start: '',
   year_end: '',
   location: '',
+  voice_style: 'accessible',
   mode: 'free',
   missions: [],
 };
@@ -41,10 +47,37 @@ const MODE_OPTIONS = [
   },
 ];
 
-export default function PersonasEditor({ unit }) {
+const VOICE_OPTIONS = [
+  {
+    value: 'accessible',
+    label: 'Accessible',
+    icon: '💬',
+    desc: 'Clear, modern language that\'s easy to understand while staying historically accurate.',
+  },
+  {
+    value: 'historical',
+    label: 'Historical Voice',
+    icon: '📜',
+    desc: 'Period-authentic language, vocabulary, and idioms from the persona\'s time.',
+  },
+  {
+    value: 'guided',
+    label: 'Socratic / Guided',
+    icon: '🎓',
+    desc: 'Asks probing questions to encourage critical thinking rather than just answering directly.',
+  },
+];
+
+const PERSONA_SUBTABS = [
+  { key: 'manage', label: 'Manage Personas' },
+  { key: 'conversations', label: 'Student Conversations' },
+];
+
+export default function PersonasEditor({ unit, students = [] }) {
   const [personas, setPersonas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeSubtab, setActiveSubtab] = useState('manage');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -92,11 +125,13 @@ export default function PersonasEditor({ unit }) {
     setForm({
       name:        persona.name,
       description: persona.description || '',
+      emoji:       persona.emoji       || '👨‍⚖️',
       min_turns:   persona.min_turns,
       due_date:    persona.due_date?.slice(0, 10) || '',
       year_start:  persona.year_start ?? '',
       year_end:    persona.year_end   ?? '',
       location:    persona.location   || '',
+      voice_style: persona.voice_style || 'accessible',
       mode:        persona.mode       || 'free',
       missions:    persona.missions   || [],
     });
@@ -123,11 +158,13 @@ export default function PersonasEditor({ unit }) {
     const payload = {
       name:        form.name.trim(),
       description: form.description.trim() || null,
+      emoji:       form.emoji || null,
       min_turns:   Number(form.min_turns),
       due_date:    form.due_date    || null,
       year_start:  form.year_start  ? Number(form.year_start) : null,
       year_end:    form.year_end    ? Number(form.year_end)   : null,
       location:    form.location.trim() || null,
+      voice_style: form.voice_style,
       mode:        form.mode,
       missions:    form.missions,
     };
@@ -166,16 +203,10 @@ export default function PersonasEditor({ unit }) {
     setFormError('');
     setGeneratingMissions(true);
     try {
-      // If editing an existing persona, generate from saved persona ID
       if (editTarget) {
         const { missions } = await generateMissions(editTarget.id);
         setForm(f => ({ ...f, missions }));
       } else {
-        // Need to create a temporary approach: generate missions using the unit context + form data
-        // We'll call it by saving a temp persona first, or better: just save first then generate
-        // For a new (unsaved) persona, we need a different approach.
-        // Best approach: ask backend to generate from form data inline
-        // We'll just build a simple client-side call using the form data
         setFormError('Save the persona first, then use "Generate Missions" to get AI suggestions.');
       }
     } catch (err) {
@@ -214,7 +245,16 @@ export default function PersonasEditor({ unit }) {
 
   function modeLabel(mode) {
     const opt = MODE_OPTIONS.find(o => o.value === mode);
-    return opt ? `${opt.icon} ${opt.label}` : 'Free Conversation';
+    return opt ? `${opt.icon} ${opt.label}` : '💬 Free Conversation';
+  }
+
+  function voiceLabel(voice) {
+    const opt = VOICE_OPTIONS.find(o => o.value === voice);
+    return opt ? `${opt.icon} ${opt.label}` : '💬 Accessible';
+  }
+
+  function getPersonaEmoji(p, i) {
+    return p.emoji || PERSONA_EMOJIS[i % PERSONA_EMOJIS.length];
   }
 
   if (loading) return <LoadingSpinner fullPage label="Loading personas…" />;
@@ -223,55 +263,85 @@ export default function PersonasEditor({ unit }) {
     <div>
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.6 }}>
-          Personas are historical figures students can have conversations with. Each persona uses the unit context to stay accurate.
-        </p>
-        <button className="btn btn-primary" style={{ marginLeft: 16, flexShrink: 0 }} onClick={openCreate}>
-          + Add Persona
-        </button>
+      <div className="quiz-tab-bar" style={{ marginBottom: 20 }}>
+        {PERSONA_SUBTABS.map(tab => (
+          <button
+            key={tab.key}
+            className={`quiz-tab ${activeSubtab === tab.key ? 'quiz-tab--active' : ''}`}
+            onClick={() => setActiveSubtab(tab.key)}
+          >
+            {tab.label}
+            {tab.key === 'manage' && <span className="quiz-tab-badge">{personas.length}</span>}
+            {tab.key === 'conversations' && <span className="quiz-tab-badge">{students.length}</span>}
+          </button>
+        ))}
       </div>
 
-      {personas.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"></div>
-          <h3>No personas yet</h3>
-          <p>Add historical figures for students to converse with. For example: a Union soldier, Abraham Lincoln, or a freed slave.</p>
-          <button className="btn btn-primary" onClick={openCreate}>Add First Persona</button>
-        </div>
-      ) : (
-        <div className="persona-list">
-          {personas.map((p, i) => (
-            <div key={p.id} className="persona-item">
-              <div className="persona-item-avatar">
-                {PERSONA_EMOJIS[i % PERSONA_EMOJIS.length]}
-              </div>
-              <div className="persona-item-body">
-                <div className="persona-item-name">{p.name}</div>
-                {p.description && <div className="persona-item-desc">{p.description}</div>}
-                <div className="persona-item-meta">
-                  Min. {p.min_turns} exchange{p.min_turns !== 1 ? 's' : ''}
-                  {formatContextBadge(p) && ` · ${formatContextBadge(p)}`}
-                  {p.due_date && ` · Due ${new Date(p.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                  {' · '}{modeLabel(p.mode || 'free')}
-                  {p.mode === 'missions' && p.missions?.length > 0 && ` (${p.missions.length} mission${p.missions.length !== 1 ? 's' : ''})`}
-                </div>
-              </div>
-              <div className="persona-item-actions">
-                <button className="btn btn-ghost" style={{ padding: '6px 12px' }} onClick={() => openEdit(p)}>Edit</button>
-                <button className="btn btn-danger" style={{ padding: '6px 12px' }} onClick={() => setDeleteTarget(p)}>Delete</button>
-              </div>
+      {activeSubtab === 'manage' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.6 }}>
+              Personas are historical figures students can have conversations with. Each persona uses the unit context to stay accurate.
+            </p>
+            <button className="btn btn-primary" style={{ marginLeft: 16, flexShrink: 0 }} onClick={openCreate}>
+              + Add Persona
+            </button>
+          </div>
+
+          {personas.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">🏛️</div>
+              <h3>No personas yet</h3>
+              <p>Add historical figures for students to converse with. For example: a Union soldier, Abraham Lincoln, or a freed slave.</p>
+              <button className="btn btn-primary" onClick={openCreate}>Add First Persona</button>
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="persona-list">
+              {personas.map((p, i) => (
+                <div key={p.id} className="persona-item">
+                  <div className="persona-item-avatar">
+                    {getPersonaEmoji(p, i)}
+                  </div>
+                  <div className="persona-item-body">
+                    <div className="persona-item-name">{p.name}</div>
+                    {p.description && <div className="persona-item-desc">{p.description}</div>}
+                    <div className="persona-item-meta">
+                      Min. {p.min_turns} exchange{p.min_turns !== 1 ? 's' : ''}
+                      {formatContextBadge(p) && ` · ${formatContextBadge(p)}`}
+                      {p.due_date && ` · Due ${new Date(p.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                      {' · '}{modeLabel(p.mode || 'free')}
+                      {p.mode === 'missions' && p.missions?.length > 0 && ` (${p.missions.length} mission${p.missions.length !== 1 ? 's' : ''})`}
+                      {p.voice_style && p.voice_style !== 'accessible' && ` · ${voiceLabel(p.voice_style)}`}
+                    </div>
+                  </div>
+                  <div className="persona-item-actions">
+                    <button className="btn btn-ghost" style={{ padding: '6px 12px' }} onClick={() => openEdit(p)}>Edit</button>
+                    <button className="btn btn-danger" style={{ padding: '6px 12px' }} onClick={() => setDeleteTarget(p)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeSubtab === 'conversations' && (
+        <>
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
+              Review how each student is interacting with every persona in this unit. Select a persona-student pairing to read the full conversation transcript.
+            </p>
+          </div>
+          <PersonaConversationsView personas={personas} students={students} />
+        </>
       )}
 
       {/* Create / Edit Modal */}
       <Modal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editTarget ? 'Edit Persona' : 'Add Persona'}
-        size="md"
+        title={editTarget ? 'Edit Persona' : 'New Persona'}
+        size="lg"
         footer={
           <ModalActions
             onCancel={() => setModalOpen(false)}
@@ -283,17 +353,40 @@ export default function PersonasEditor({ unit }) {
       >
         {formError && <div className="alert alert-error">{formError}</div>}
 
-        <div className="field">
-          <label>Name</label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={field('name')}
-            placeholder="e.g. Union Soldier, Frederick Douglass"
-            autoFocus
-          />
+        {/* ── Identity ── */}
+        <div className="persona-context-section" style={{ marginBottom: 16 }}>
+          <div className="persona-context-label">Identity</div>
+
+          {/* Avatar picker */}
+          <div className="field" style={{ marginBottom: 12 }}>
+            <label>Avatar</label>
+            <div className="persona-emoji-picker">
+              {PERSONA_EMOJIS.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className={`persona-emoji-btn${form.emoji === emoji ? ' persona-emoji-btn--active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, emoji }))}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Name <span style={{ color: 'var(--rust)', fontWeight: 600 }}>*</span></label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={field('name')}
+              placeholder="e.g. Union Soldier, Frederick Douglass"
+              autoFocus
+            />
+          </div>
         </div>
 
+        {/* ── Background ── */}
         <div className="field">
           <label>Background Description</label>
           <textarea
@@ -304,7 +397,7 @@ export default function PersonasEditor({ unit }) {
           />
         </div>
 
-        {/* Historical Context section */}
+        {/* ── Historical Context ── */}
         <div className="persona-context-section">
           <div className="persona-context-label">Historical Context</div>
 
@@ -350,6 +443,7 @@ export default function PersonasEditor({ unit }) {
           </div>
         </div>
 
+        {/* ── Settings row ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
           <div className="field">
             <label>Minimum Exchanges</label>
@@ -367,52 +461,60 @@ export default function PersonasEditor({ unit }) {
           </div>
         </div>
 
-        {/* ── Conversation Mode ── */}
-        <div className="persona-context-section" style={{ marginTop: 20 }}>
-          <div className="persona-context-label">Conversation Mode</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {MODE_OPTIONS.map(opt => (
-              <label
+        {/* ── Voice & Tone ── */}
+        <div className="persona-context-section" style={{ marginTop: 4 }}>
+          <div className="persona-context-label">Speaking Style</div>
+          <div className="persona-mode-options">
+            {VOICE_OPTIONS.map(opt => (
+              <div
                 key={opt.value}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  padding: '12px 14px',
-                  borderRadius: 8,
-                  border: `2px solid ${form.mode === opt.value ? 'var(--rust)' : 'var(--border)'}`,
-                  background: form.mode === opt.value ? 'rgba(181,69,27,0.05)' : '#fff',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s, background 0.15s',
-                }}
+                className={`persona-mode-option${form.voice_style === opt.value ? ' persona-mode-option--active' : ''}`}
+                onClick={() => setForm(f => ({ ...f, voice_style: opt.value }))}
+                role="radio"
+                aria-checked={form.voice_style === opt.value}
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') setForm(f => ({ ...f, voice_style: opt.value })); }}
               >
-                <input
-                  type="radio"
-                  name="persona-mode"
-                  value={opt.value}
-                  checked={form.mode === opt.value}
-                  onChange={() => setForm(f => ({ ...f, mode: opt.value }))}
-                  style={{ marginTop: 2, flexShrink: 0 }}
-                />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
-                    {opt.icon} {opt.label}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5 }}>
-                    {opt.desc}
-                  </div>
+                <div className={`persona-mode-radio${form.voice_style === opt.value ? ' persona-mode-radio--checked' : ''}`} />
+                <div className="persona-mode-content">
+                  <div className="persona-mode-title">{opt.icon} {opt.label}</div>
+                  <div className="persona-mode-desc">{opt.desc}</div>
                 </div>
-              </label>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* ── Missions Editor (only shown when mode === 'missions') ── */}
+        {/* ── Conversation Mode ── */}
+        <div className="persona-context-section" style={{ marginTop: 12 }}>
+          <div className="persona-context-label">Conversation Mode</div>
+          <div className="persona-mode-options">
+            {MODE_OPTIONS.map(opt => (
+              <div
+                key={opt.value}
+                className={`persona-mode-option${form.mode === opt.value ? ' persona-mode-option--active' : ''}`}
+                onClick={() => setForm(f => ({ ...f, mode: opt.value }))}
+                role="radio"
+                aria-checked={form.mode === opt.value}
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') setForm(f => ({ ...f, mode: opt.value })); }}
+              >
+                <div className={`persona-mode-radio${form.mode === opt.value ? ' persona-mode-radio--checked' : ''}`} />
+                <div className="persona-mode-content">
+                  <div className="persona-mode-title">{opt.icon} {opt.label}</div>
+                  <div className="persona-mode-desc">{opt.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Missions Editor ── */}
         {form.mode === 'missions' && (
-          <div className="persona-context-section" style={{ marginTop: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div className="persona-context-section" style={{ marginTop: 12 }}>
+            <div className="persona-missions-header">
               <div className="persona-context-label" style={{ marginBottom: 0 }}>Missions</div>
-              {editTarget && (
+              {editTarget ? (
                 <button
                   className="btn btn-ghost"
                   style={{ fontSize: 12, padding: '4px 12px' }}
@@ -421,23 +523,23 @@ export default function PersonasEditor({ unit }) {
                 >
                   {generatingMissions ? 'Generating…' : '✨ Generate with AI'}
                 </button>
-              )}
-              {!editTarget && (
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                  Save persona first to use AI generation
+              ) : (
+                <span className="persona-missions-ai-hint">
+                  💡 Save persona first to use AI generation
                 </span>
               )}
             </div>
 
             {form.missions.length === 0 && (
-              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
-                No missions yet. Add missions below or use AI generation after saving.
-              </p>
+              <div className="persona-missions-empty">
+                <div className="persona-missions-empty-icon">🎯</div>
+                No missions yet. Add objectives below, or save this persona first to use AI generation.
+              </div>
             )}
 
             {form.missions.map((m, i) => (
-              <div key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: 'var(--muted)', paddingTop: 10, minWidth: 20 }}>{i + 1}.</span>
+              <div key={m.id} className="persona-mission-row">
+                <span className="persona-mission-number">{i + 1}</span>
                 <textarea
                   rows={2}
                   value={m.text}
@@ -455,14 +557,14 @@ export default function PersonasEditor({ unit }) {
               </div>
             ))}
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <div className="persona-mission-add-row">
               <input
                 type="text"
                 value={newMissionText}
                 onChange={e => setNewMissionText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addMission(); } }}
-                placeholder="Add a new mission…"
-                style={{ flex: 1 }}
+                placeholder="Type a mission objective and press Enter…"
+                style={{ flex: 1, marginBottom: 0 }}
               />
               <button
                 className="btn btn-dark"
@@ -478,18 +580,9 @@ export default function PersonasEditor({ unit }) {
 
         {/* ── Quiz mode info ── */}
         {form.mode === 'quiz' && (
-          <div style={{
-            marginTop: 16,
-            padding: '12px 14px',
-            borderRadius: 8,
-            background: 'rgba(181,69,27,0.05)',
-            border: '1px solid rgba(181,69,27,0.2)',
-            fontSize: 13,
-            color: 'var(--ink)',
-            lineHeight: 1.6,
-          }}>
+          <div className="persona-quiz-info">
             <strong>How quiz mode works:</strong>
-            <ul style={{ margin: '6px 0 0 0', paddingLeft: 18 }}>
+            <ul>
               <li>Students chat normally until they reach the minimum exchanges.</li>
               <li>A quiz is automatically generated based on <em>what the student discussed</em> — unique to each student.</li>
               <li>Once the quiz starts, the conversation is locked (students can't go back to chat).</li>

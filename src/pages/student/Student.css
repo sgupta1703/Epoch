@@ -1208,8 +1208,6 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
-  margin-left: auto;
-  flex-shrink: 0;
 }
 
 .persona-progress-label {
@@ -1409,79 +1407,656 @@
   letter-spacing: 0.02em;
 }
 
-/* ── Persona Missions Panel ── */
-.persona-missions-panel {
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 20px;
-  background: linear-gradient(180deg, rgba(248,242,233,0.6) 0%, rgba(255,255,255,0) 100%);
-}
-
-.persona-missions-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-
-.persona-mission-item {
+/* ── Mode badge in header ── */
+.persona-header-badges {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.persona-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.persona-mode-badge--free     { background: rgba(100,100,100,0.1); color: #666; }
+.persona-mode-badge--missions { background: rgba(184,76,43,0.12);  color: var(--rust); }
+.persona-mode-badge--quiz     { background: rgba(44,90,160,0.1);   color: #2c5aa0; }
+
+/* ── Missions FAB button in header ── */
+.persona-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-
-.persona-mission-item:hover {
-  background: rgba(181,69,27,0.04);
-}
-
-.persona-mission-item--done .persona-mission-text {
-  text-decoration: line-through;
-  color: var(--muted);
-}
-
-.persona-mission-check {
+  margin-left: auto;
   flex-shrink: 0;
-  margin-top: 2px;
-  width: 15px;
-  height: 15px;
-  accent-color: var(--rust);
-  cursor: pointer;
 }
 
-.persona-mission-text {
-  font-size: 13px;
-  color: var(--ink);
+.missions-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(184,76,43,0.22);
+  background: rgba(184,76,43,0.07);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rust);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.missions-fab:hover {
+  background: rgba(184,76,43,0.13);
+  border-color: rgba(184,76,43,0.38);
+  box-shadow: 0 4px 12px rgba(184,76,43,0.12);
+}
+
+.missions-fab--done {
+  border-color: rgba(42,122,42,0.28);
+  background: rgba(42,122,42,0.08);
+  color: #2a7a2a;
+}
+
+.missions-fab--done:hover {
+  background: rgba(42,122,42,0.13);
+  border-color: rgba(42,122,42,0.4);
+  box-shadow: 0 4px 12px rgba(42,122,42,0.1);
+}
+
+.missions-fab-icon  { font-size: 14px; line-height: 1; }
+.missions-fab-label { letter-spacing: 0.01em; }
+
+.missions-fab-pill {
+  background: var(--rust);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
   line-height: 1.5;
 }
 
-.persona-missions-progress {
-  font-size: 11px;
-  color: var(--muted);
-  text-align: right;
-  margin-top: 8px;
+.missions-fab-pill--done { background: #2a7a2a; }
+
+/* ── Missions drawer overlay ── */
+.missions-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: 22px;
+  background: rgba(20,14,10,0.28);
+  backdrop-filter: blur(1px);
+  animation: fadeIn 0.15s ease;
+}
+
+/* ── Missions drawer ── */
+.missions-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  z-index: 6;
+  background: linear-gradient(180deg, #faf6f0 0%, #f5ede2 100%);
+  border-left: 1px solid rgba(119,98,73,0.16);
+  border-radius: 0 22px 22px 0;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: -8px 0 32px rgba(33,25,18,0.1);
+  overflow: hidden;
+}
+
+.missions-drawer--open {
+  transform: translateX(0);
+}
+
+.missions-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(119,98,73,0.12);
+  background: linear-gradient(180deg, rgba(248,242,233,0.95), rgba(243,234,220,0.95));
+  flex-shrink: 0;
+}
+
+.missions-drawer-title {
+  font-family: var(--font-display);
+  font-size: 17px;
   font-weight: 600;
+  color: var(--ink);
+}
+
+.missions-drawer-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(119,98,73,0.1);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.13s, color 0.13s;
+}
+
+.missions-drawer-close:hover {
+  background: rgba(184,76,43,0.12);
+  color: var(--rust);
+}
+
+.missions-drawer-progress {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(119,98,73,0.1);
+  flex-shrink: 0;
+}
+
+.missions-drawer-progress-text {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+
+.missions-drawer-done-badge {
+  background: rgba(42,122,42,0.12);
+  color: #2a7a2a;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.missions-drawer-bar {
+  height: 4px;
+  background: rgba(125,98,70,0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.missions-drawer-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rust), var(--gold));
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
+
+.missions-drawer-bar-fill--done {
+  background: linear-gradient(90deg, #2a7a2a, #52b252);
+}
+
+.missions-drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.missions-drawer-list::-webkit-scrollbar       { width: 3px; }
+.missions-drawer-list::-webkit-scrollbar-track { background: transparent; }
+.missions-drawer-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.missions-drawer-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid rgba(119,98,73,0.12);
+  background: rgba(255,255,255,0.7);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.missions-drawer-item--done {
+  background: rgba(42,122,42,0.06);
+  border-color: rgba(42,122,42,0.18);
+}
+
+.missions-drawer-item-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.missions-drawer-check {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.missions-drawer-check--done {
+  background: #2a7a2a;
+  border-color: #2a7a2a;
+  color: #fff;
+  font-size: 12px;
+}
+
+.missions-drawer-item-text {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+.missions-drawer-item--done .missions-drawer-item-text {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(42,122,42,0.4);
+}
+
+.missions-drawer-all-done {
+  margin: 0 14px 14px;
+  text-align: center;
+  padding: 12px;
+  background: rgba(42,122,42,0.08);
+  border: 1px solid rgba(42,122,42,0.2);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2a7a2a;
+  line-height: 1.5;
+  flex-shrink: 0;
 }
 
 /* ── Quiz prompt banner ── */
 .chat-quiz-prompt {
-  padding: 20px 24px;
+  padding: 28px 24px;
   border-top: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(181,69,27,0.06) 0%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(180deg, rgba(181,69,27,0.05) 0%, rgba(255,255,255,0) 100%);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
 }
 
-/* ── Persona Quiz view (take / results) ── */
-.persona-quiz-take,
-.persona-quiz-results {
-  padding: 20px 24px;
+.chat-quiz-prompt-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+
+.chat-quiz-prompt-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.chat-quiz-prompt-body {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+  max-width: 38ch;
+  margin-bottom: 18px;
+}
+
+/* ── Quiz take screen ── */
+.pq-take {
   border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.pq-take-header {
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(248,242,233,0.9), rgba(255,255,255,0));
+}
+
+.pq-take-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.pq-take-sub {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.pq-take-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pq-take-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(125,98,70,0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.pq-take-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rust), var(--gold));
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+.pq-take-bar-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pq-questions {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  max-height: 480px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.pq-questions::-webkit-scrollbar       { width: 4px; }
+.pq-questions::-webkit-scrollbar-track { background: transparent; }
+.pq-questions::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.pq-question {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.pq-question-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pq-question-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.pq-question-type {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pq-question-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+
+/* MC options */
+.pq-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pq-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.13s, background 0.13s;
+  user-select: none;
+}
+
+.pq-option:hover {
+  border-color: rgba(184,76,43,0.3);
+  background: var(--cream);
+}
+
+.pq-option--selected {
+  border-color: var(--rust);
+  background: rgba(184,76,43,0.04);
+}
+
+.pq-radio {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  transition: border-color 0.13s;
+  flex-shrink: 0;
+}
+
+.pq-radio--checked {
+  border-color: var(--rust);
+  background: var(--rust);
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.pq-option-text {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+/* Short answer textarea */
+.pq-sa {
+  width: 100%;
+  padding: 10px 13px;
+  font-size: 14px;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.pq-sa:focus {
+  border-color: var(--rust);
+  box-shadow: 0 0 0 3px rgba(184,76,43,0.1);
+}
+
+/* Submit row */
+.pq-submit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(245,238,228,0.7), rgba(241,232,219,0.9));
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.pq-submit-hint {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── Quiz results screen ── */
+.pq-results {
+  border-top: 1px solid var(--border);
+}
+
+.pq-score-card {
+  text-align: center;
+  padding: 28px 20px 22px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(248,242,233,0.8), rgba(255,255,255,0));
+}
+
+.pq-score-emoji {
+  font-size: 36px;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+
+.pq-score-num {
+  font-family: var(--font-display);
+  font-size: 54px;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.pq-score--high { color: #2a7a2a; }
+.pq-score--mid  { color: #b8860b; }
+.pq-score--low  { color: #c0392b; }
+
+.pq-score-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.pq-score-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pq-results-list {
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pq-result-item {
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+}
+
+.pq-result-item--correct {
+  border-color: #c8e6c8;
+  border-left-color: #2a7a2a;
+  background: #f5fbf5;
+}
+
+.pq-result-item--wrong {
+  border-color: #f5c8c8;
+  border-left-color: #c0392b;
+  background: #fef7f7;
+}
+
+.pq-result-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pq-result-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.pq-result-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+
+.pq-result-badge--correct { background: rgba(42,122,42,0.12); color: #2a7a2a; }
+.pq-result-badge--wrong   { background: rgba(192,57,43,0.1);  color: #c0392b; }
+
+.pq-result-q {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.pq-result-row {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 3px;
+  line-height: 1.5;
+}
+
+.pq-result-row-label { color: var(--muted); flex-shrink: 0; }
+.pq-ans--correct     { color: #2a7a2a; font-weight: 500; }
+.pq-ans--wrong       { color: #c0392b; }
+
+.pq-result-feedback {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 6px;
+  line-height: 1.5;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0,0,0,0.05);
 }
 
 /* ── Keyframes ── */
