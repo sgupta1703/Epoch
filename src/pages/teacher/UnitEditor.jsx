@@ -171,7 +171,7 @@ export default function UnitEditor({ user }) {
           </div>
 
           {activeTab === 'notes'      && <NotesEditor      unit={unit} />}
-          {activeTab === 'personas'   && <PersonasEditor   unit={unit} />}
+          {activeTab === 'personas'   && <PersonasEditor   unit={unit} students={students} />}
           {activeTab === 'quiz'       && <QuizEditor       unit={unit} students={students} />}
           {activeTab === 'assignment' && <AssignmentEditor unit={unit} students={students} />}
         </main>

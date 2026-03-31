@@ -93,6 +93,7 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .classroom-card-initial {
@@ -311,6 +312,204 @@
 /* ── PersonasEditor ── */
 .persona-list { display: flex; flex-direction: column; gap: 12px; }
 
+/* Conversation mode / voice style selector cards */
+.persona-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Uses <div> (not <label>) so .modal-body label doesn't interfere */
+.persona-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  user-select: none;
+}
+
+.persona-mode-option:hover {
+  border-color: rgba(181, 69, 27, 0.35);
+  background: var(--cream);
+}
+
+.persona-mode-option--active {
+  border-color: var(--rust);
+  background: rgba(181, 69, 27, 0.04);
+  box-shadow: 0 0 0 1px rgba(181, 69, 27, 0.10);
+}
+
+/* Custom radio dot */
+.persona-mode-radio {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  margin-top: 2px;
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.persona-mode-radio--checked {
+  border-color: var(--rust);
+  background: var(--rust);
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.persona-mode-content { flex: 1; min-width: 0; }
+
+.persona-mode-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.persona-mode-option--active .persona-mode-title {
+  color: var(--rust);
+}
+
+.persona-mode-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Emoji avatar picker */
+.persona-emoji-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.persona-emoji-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: #fff;
+  font-size: 19px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.persona-emoji-btn:hover {
+  border-color: rgba(181, 69, 27, 0.4);
+  background: var(--cream);
+  transform: scale(1.08);
+}
+
+.persona-emoji-btn--active {
+  border-color: var(--rust);
+  background: rgba(181, 69, 27, 0.06);
+  box-shadow: 0 0 0 1px rgba(181, 69, 27, 0.12);
+}
+
+/* Missions section inside modal */
+.persona-missions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.persona-missions-ai-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--cream);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.persona-missions-empty {
+  text-align: center;
+  padding: 18px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  background: #fff;
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.persona-missions-empty-icon {
+  font-size: 20px;
+  margin-bottom: 6px;
+  opacity: 0.5;
+}
+
+.persona-mission-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.persona-mission-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 9px;
+}
+
+.persona-mission-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.persona-mission-add-row input {
+  margin-bottom: 0;
+}
+
+/* Quiz mode info panel inside persona modal */
+.persona-quiz-info {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 6px;
+  background: rgba(181, 69, 27, 0.05);
+  border: 1px solid rgba(181, 69, 27, 0.18);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+.persona-quiz-info ul {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .persona-item {
   background: #fff;
   border: 1px solid var(--border);
@@ -351,6 +550,7 @@
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -364,6 +564,579 @@
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.pconv-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.pconv-sidebar,
+.pconv-main {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.pconv-sidebar {
+  max-height: 72vh;
+  overflow: auto;
+  padding: 14px;
+}
+
+.pconv-persona-group + .pconv-persona-group {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.pconv-persona-group-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.pconv-persona-emoji {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.pconv-persona-group-info {
+  min-width: 0;
+}
+
+.pconv-persona-group-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.pconv-persona-group-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.pconv-student-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pconv-student-row {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  text-align: left;
+}
+
+.pconv-student-row:hover {
+  background: var(--cream);
+  border-color: rgba(181, 69, 27, 0.16);
+}
+
+.pconv-student-row--active {
+  background: rgba(181, 69, 27, 0.08);
+  border-color: rgba(181, 69, 27, 0.28);
+}
+
+.pconv-student-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.pconv-student-name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pconv-main {
+  min-height: 520px;
+  height: clamp(520px, 72vh, 860px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.pconv-conv-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pconv-conv-header-left {
+  min-width: 0;
+}
+
+.pconv-conv-header-right {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.pconv-conv-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.pconv-conv-title-sep {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pconv-conv-meta {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pconv-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pconv-badge--complete {
+  background: #eaf6ea;
+  color: #1f6f3e;
+}
+
+.pconv-badge--quiz {
+  background: #eaf0fb;
+  color: #315a96;
+}
+
+.pconv-badge--missions {
+  background: rgba(181, 69, 27, 0.1);
+  color: var(--rust);
+}
+
+.missions-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(184, 76, 43, 0.22);
+  background: rgba(184, 76, 43, 0.07);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rust);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.missions-fab:hover {
+  background: rgba(184, 76, 43, 0.13);
+  border-color: rgba(184, 76, 43, 0.38);
+  box-shadow: 0 4px 12px rgba(184, 76, 43, 0.12);
+}
+
+.missions-fab--done {
+  border-color: rgba(42, 122, 42, 0.28);
+  background: rgba(42, 122, 42, 0.08);
+  color: #2a7a2a;
+}
+
+.missions-fab--done:hover {
+  background: rgba(42, 122, 42, 0.13);
+  border-color: rgba(42, 122, 42, 0.4);
+  box-shadow: 0 4px 12px rgba(42, 122, 42, 0.1);
+}
+
+.missions-fab-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.missions-fab-label {
+  letter-spacing: 0.01em;
+}
+
+.missions-fab-pill {
+  background: var(--rust);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  line-height: 1.5;
+}
+
+.missions-fab-pill--done {
+  background: #2a7a2a;
+}
+
+.missions-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(20, 14, 10, 0.28);
+  backdrop-filter: blur(1px);
+  animation: fadeIn 0.15s ease;
+}
+
+.missions-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 100%);
+  z-index: 6;
+  background: linear-gradient(180deg, #faf6f0 0%, #f5ede2 100%);
+  border-left: 1px solid rgba(119, 98, 73, 0.16);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: -8px 0 32px rgba(33, 25, 18, 0.1);
+  overflow: hidden;
+}
+
+.missions-drawer--open {
+  transform: translateX(0);
+}
+
+.missions-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(119, 98, 73, 0.12);
+  background: linear-gradient(180deg, rgba(248, 242, 233, 0.95), rgba(243, 234, 220, 0.95));
+  flex-shrink: 0;
+}
+
+.missions-drawer-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.missions-drawer-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(119, 98, 73, 0.1);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.13s, color 0.13s;
+}
+
+.missions-drawer-close:hover {
+  background: rgba(184, 76, 43, 0.12);
+  color: var(--rust);
+}
+
+.missions-drawer-progress {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(119, 98, 73, 0.1);
+  flex-shrink: 0;
+}
+
+.missions-drawer-progress-text {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+
+.missions-drawer-done-badge {
+  background: rgba(42, 122, 42, 0.12);
+  color: #2a7a2a;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.missions-drawer-bar {
+  height: 4px;
+  background: rgba(125, 98, 70, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.missions-drawer-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rust), var(--gold));
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
+
+.missions-drawer-bar-fill--done {
+  background: linear-gradient(90deg, #2a7a2a, #52b252);
+}
+
+.missions-drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.missions-drawer-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.missions-drawer-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.missions-drawer-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.missions-drawer-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid rgba(119, 98, 73, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.missions-drawer-item--done {
+  background: rgba(42, 122, 42, 0.06);
+  border-color: rgba(42, 122, 42, 0.18);
+}
+
+.missions-drawer-item-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.missions-drawer-check {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.missions-drawer-check--done {
+  background: #2a7a2a;
+  border-color: #2a7a2a;
+  color: #fff;
+  font-size: 12px;
+}
+
+.missions-drawer-item-text {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+.missions-drawer-item--done .missions-drawer-item-text {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(42, 122, 42, 0.4);
+}
+
+.missions-drawer-all-done {
+  margin: 0 14px 14px;
+  text-align: center;
+  padding: 12px;
+  background: rgba(42, 122, 42, 0.08);
+  border: 1px solid rgba(42, 122, 42, 0.2);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2a7a2a;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
+.pconv-loading,
+.pconv-empty {
+  flex: 1;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.pconv-empty-icon {
+  min-width: 52px;
+  height: 52px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.pconv-empty-title {
+  margin-top: 14px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.pconv-empty-sub {
+  margin-top: 8px;
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.pconv-messages {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pconv-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pconv-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pconv-messages::-webkit-scrollbar-thumb {
+  background: rgba(94, 77, 60, 0.22);
+  border-radius: 999px;
+}
+
+.pconv-bubble {
+  max-width: min(760px, 100%);
+  border-radius: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+}
+
+.pconv-bubble--user {
+  align-self: flex-end;
+  background: var(--cream);
+}
+
+.pconv-bubble--assistant {
+  align-self: flex-start;
+  background: #fff;
+}
+
+.pconv-bubble-sender {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pconv-bubble-text {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.pconv-bubble-text--md > *:first-child {
+  margin-top: 0;
+}
+
+.pconv-bubble-text--md > *:last-child {
+  margin-bottom: 0;
 }
 
 /* ── QuizEditor ── */
@@ -664,6 +1437,7 @@
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 4;
+  line-clamp: 4;
   -webkit-box-orient: vertical;
 }
 
@@ -1604,6 +2378,25 @@
   .classroom-tab {
     padding: 8px 14px;
     font-size: 12px;
+  }
+  .pconv-layout {
+    grid-template-columns: 1fr;
+  }
+  .pconv-sidebar {
+    max-height: none;
+  }
+  .pconv-main {
+    min-height: 420px;
+    height: 70vh;
+  }
+  .pconv-conv-header {
+    flex-direction: column;
+  }
+  .pconv-conv-header-right {
+    margin-left: 0;
+  }
+  .missions-drawer {
+    width: 100%;
   }
 }
 
