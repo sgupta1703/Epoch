@@ -19,3 +19,8 @@ export async function chatWithEssayGuideApi(question, essayDraft, messages) {
   const res = await api.post('/api/assistant/essay-guide/chat', { question, essayDraft, messages });
   return res.data;
 }
+
+export async function chatWithStudentUnitCopilotApi(unitId, surface, messages) {
+  const res = await api.post('/api/assistant/student-unit/chat', { unitId, surface, messages });
+  return res.data;
+}

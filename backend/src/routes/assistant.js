@@ -2,15 +2,100 @@ const express = require('express');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
 const supabase = require('../services/supabaseClient');
-const { chatWithEpochAssistant, evaluateEssayOutline, chatWithEssayGuide } = require('../services/claude');
+const {
+  chatWithEpochAssistant,
+  evaluateEssayOutline,
+  chatWithEssayGuide,
+  chatWithStudentUnitCopilot,
+} = require('../services/claude');
 const { getUserSettings, buildTeacherAiInstruction, buildStudentAiInstruction } = require('../services/userSettings');
 
 const router = express.Router();
+const STUDENT_COPILOT_SURFACES = new Set(['notes', 'personas']);
 
 function buildAiInstructionForUser(role, settings) {
   return role === 'teacher'
     ? buildTeacherAiInstruction(settings)
     : buildStudentAiInstruction(settings);
+}
+
+function normalizeMessages(messages, maxCount = 12) {
+  if (!Array.isArray(messages)) return [];
+
+  return messages
+    .filter((message) => typeof message?.content === 'string' && message.content.trim())
+    .slice(-maxCount)
+    .map((message) => ({
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      content: message.content.trim(),
+    }));
+}
+
+function looksLikeAssessmentAnswerRequest(text = '') {
+  const normalized = String(text).toLowerCase();
+  const assessmentPattern = /\b(quiz|assignment|dbq|frq|prompt|question|multiple choice|essay)\b/;
+  const answerSeekingPattern = /\b(answer|answers|correct answer|solve|which option|which choice|pick the right|choose the right|write this|write my|respond with|what do i put|what should i put|what should i write|complete this for me|do this for me)\b/;
+
+  return assessmentPattern.test(normalized) && answerSeekingPattern.test(normalized);
+}
+
+async function getStudentUnitCopilotContext(unitId, studentId) {
+  const { data: unit, error: unitError } = await supabase
+    .from('units')
+    .select('id, title, context, classroom_id, is_visible, classrooms(name)')
+    .eq('id', unitId)
+    .single();
+
+  if (unitError || !unit) {
+    return { unit: null, notes: '', personas: [], error: 'Unit not found', status: 404 };
+  }
+
+  if (!unit.is_visible) {
+    return { unit: null, notes: '', personas: [], error: 'Access denied', status: 403 };
+  }
+
+  const { data: enrollment } = await supabase
+    .from('classroom_students')
+    .select('classroom_id')
+    .eq('classroom_id', unit.classroom_id)
+    .eq('student_id', studentId)
+    .single();
+
+  if (!enrollment) {
+    return { unit: null, notes: '', personas: [], error: 'Access denied', status: 403 };
+  }
+
+  const [
+    { data: notesRow, error: notesError },
+    { data: personas, error: personasError },
+  ] = await Promise.all([
+    supabase
+      .from('notes')
+      .select('content')
+      .eq('unit_id', unitId)
+      .maybeSingle(),
+    supabase
+      .from('personas')
+      .select('id, name, description, year_start, year_end, location, mode')
+      .eq('unit_id', unitId)
+      .order('created_at', { ascending: true }),
+  ]);
+
+  if (notesError) throw notesError;
+  if (personasError) throw personasError;
+
+  return {
+    unit: {
+      id: unit.id,
+      title: unit.title,
+      context: unit.context || '',
+      classroom_name: unit.classrooms?.name || '',
+    },
+    notes: notesRow?.content || '',
+    personas: personas || [],
+    error: null,
+    status: 200,
+  };
 }
 
 router.post('/essay-guide/evaluate', authenticate, async (req, res, next) => {
@@ -61,6 +146,54 @@ router.post('/essay-guide/chat', authenticate, async (req, res, next) => {
       cleanedMessages,
       buildAiInstructionForUser(req.user.role, settings),
     );
+    res.json({ reply });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/student-unit/chat', authenticate, requireRole('student'), async (req, res, next) => {
+  try {
+    const { unitId, surface, messages } = req.body;
+
+    if (!unitId) {
+      return res.status(400).json({ error: 'unitId is required' });
+    }
+
+    if (!STUDENT_COPILOT_SURFACES.has(surface)) {
+      return res.status(403).json({ error: 'Unit Copilot is only available on notes and personas.' });
+    }
+
+    const cleanedMessages = normalizeMessages(messages, 10);
+    if (cleanedMessages.length === 0) {
+      return res.status(400).json({ error: 'messages is required' });
+    }
+
+    const latestUserMessage = [...cleanedMessages].reverse().find((message) => message.role === 'user');
+    if (latestUserMessage && looksLikeAssessmentAnswerRequest(latestUserMessage.content)) {
+      return res.json({
+        reply: "I can't help with quiz or assignment answers. I can help you review the notes, compare personas, or make a study plan instead.",
+      });
+    }
+
+    const { unit, notes, personas, error: accessError, status } = await getStudentUnitCopilotContext(unitId, req.user.id);
+    if (accessError) {
+      return res.status(status).json({ error: accessError });
+    }
+
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const reply = await chatWithStudentUnitCopilot(
+      {
+        unit,
+        notes,
+        personas,
+        surface,
+        studentName: req.user.display_name || '',
+      },
+      cleanedMessages,
+      buildStudentAiInstruction(settings),
+    );
+
     res.json({ reply });
   } catch (err) {
     next(err);

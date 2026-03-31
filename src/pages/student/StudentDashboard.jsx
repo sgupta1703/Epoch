@@ -4,7 +4,7 @@ import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { getClassrooms, joinClassroom } from '../../api/classrooms';
-import { getStudentDashboard } from '../../api/student';
+import { getStudentDashboard, getStudentDashboardPriorities } from '../../api/student';
 import '../../styles/pages.css';
 import './Student.css';
 
@@ -53,6 +53,64 @@ function DashboardMetric({ label, value, hint, tone = 'default' }) {
       <strong className="db-metric-value">{value}</strong>
       {hint && <span className="db-metric-hint">{hint}</span>}
     </div>
+  );
+}
+
+function DashboardPrioritiesPanel({ priorities, loading, fallback, onRefresh }) {
+  return (
+    <section className="db-ai-panel">
+      <div className="db-ai-panel-top">
+        <div>
+          <span className="db-ai-label">AI Priorities</span>
+          <h2 className="db-ai-title">
+            {loading && !priorities ? 'Building your study brief...' : priorities?.focus_title || 'Your next best move'}
+          </h2>
+        </div>
+        <button type="button" className="db-ai-refresh" onClick={onRefresh} disabled={loading}>
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+
+      {loading && !priorities ? (
+        <p className="db-ai-copy">
+          Pulling together your classes, due dates, and recent work to figure out what matters most next.
+        </p>
+      ) : priorities ? (
+        <>
+          <p className="db-ai-headline">{priorities.headline}</p>
+          <p className="db-ai-copy">{priorities.focus_reason}</p>
+
+          <div className="db-ai-priority-list">
+            {(priorities.priority_items || []).map((item, index) => (
+              <div key={`${item.title}-${index}`} className="db-ai-priority-item">
+                <span className="db-ai-priority-index">{index + 1}</span>
+                <div>
+                  <div className="db-ai-priority-title">{item.title}</div>
+                  <div className="db-ai-priority-detail">{item.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {priorities.watch_out && (
+            <div className="db-ai-watchout">
+              <span className="db-ai-watchout-label">Watch out</span>
+              <p>{priorities.watch_out}</p>
+            </div>
+          )}
+
+          {fallback && (
+            <p className="db-ai-fallback">
+              Showing a quick fallback briefing right now.
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="db-ai-copy">
+          Your AI priorities are not available right now, but your work queue is still up to date below.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -312,6 +370,9 @@ export default function StudentDashboard({ user }) {
   const [joinError, setJoinError]   = useState('');
   const [joinSuccess, setJoinSuccess] = useState('');
   const [activeTab, setActiveTab]   = useState('todo'); // 'todo' | 'done'
+  const [priorities, setPriorities] = useState(null);
+  const [prioritiesLoading, setPrioritiesLoading] = useState(true);
+  const [prioritiesFallback, setPrioritiesFallback] = useState(false);
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -327,8 +388,27 @@ export default function StudentDashboard({ user }) {
         joined_at: c.joined_at || new Date().toISOString(),
       })));
       setItems(its || []);
-    } catch { /* silent */ } finally {
+      void loadPriorities();
+    } catch {
+      setPriorities(null);
+      setPrioritiesFallback(false);
+      setPrioritiesLoading(false);
+    } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadPriorities() {
+    setPrioritiesLoading(true);
+    try {
+      const { priorities: nextPriorities, fallback } = await getStudentDashboardPriorities();
+      setPriorities(nextPriorities || null);
+      setPrioritiesFallback(!!fallback);
+    } catch {
+      setPriorities(null);
+      setPrioritiesFallback(false);
+    } finally {
+      setPrioritiesLoading(false);
     }
   }
 
@@ -445,6 +525,13 @@ export default function StudentDashboard({ user }) {
                     </button>
                   )}
                 </div>
+
+                <DashboardPrioritiesPanel
+                  priorities={priorities}
+                  loading={prioritiesLoading}
+                  fallback={prioritiesFallback}
+                  onRefresh={loadPriorities}
+                />
 
                 {/* Tabs */}
                 <div className="db-tabs">

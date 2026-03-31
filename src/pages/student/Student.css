@@ -2572,3 +2572,395 @@
   .student-quiz-hero { flex-direction: column; }
   .student-quiz-hero-meta { align-items: flex-start; }
 }
+
+.db-ai-panel {
+  margin-bottom: 20px;
+  padding: 22px 24px;
+  border: 1px solid rgba(34, 88, 142, 0.16);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top left, rgba(88, 142, 196, 0.14), transparent 34%),
+    linear-gradient(145deg, #f8fbff 0%, #eef4f8 100%);
+  box-shadow: 0 14px 32px rgba(39, 62, 85, 0.08);
+}
+
+.db-ai-panel-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.db-ai-label {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #2a5a8a;
+}
+
+.db-ai-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.db-ai-refresh {
+  padding: 8px 12px;
+  border: 1px solid rgba(42, 90, 138, 0.18);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.8);
+  font-size: 12px;
+  font-weight: 600;
+  color: #2a5a8a;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+
+.db-ai-refresh:disabled { cursor: default; opacity: 0.65; }
+
+.db-ai-headline {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.db-ai-copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.db-ai-priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.db-ai-priority-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(42, 90, 138, 0.12);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.78);
+}
+
+.db-ai-priority-index {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(42, 90, 138, 0.1);
+  color: #2a5a8a;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.db-ai-priority-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.db-ai-priority-detail {
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.db-ai-watchout {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(184, 76, 43, 0.08);
+  border: 1px solid rgba(184, 76, 43, 0.16);
+}
+
+.db-ai-watchout-label {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rust);
+}
+
+.db-ai-watchout p,
+.db-ai-fallback {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.db-ai-fallback { margin-top: 12px; }
+
+.student-unit-lock-link { opacity: 0.7; }
+
+.student-unit-lock-banner {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(184, 76, 43, 0.18);
+  border-radius: 12px;
+  background: rgba(184, 76, 43, 0.08);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rust);
+}
+
+.student-unit-quicknav-card--disabled,
+.student-unit-quicknav-card--disabled:hover {
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+  background: rgba(246, 240, 232, 0.8);
+  opacity: 0.58;
+}
+
+.student-copilot-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 14px;
+  border: 1px solid rgba(42, 90, 138, 0.18);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top left, rgba(88, 142, 196, 0.16), transparent 36%),
+    rgba(255,255,255,0.92);
+  box-shadow: 0 10px 24px rgba(39, 62, 85, 0.08);
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-align: left;
+}
+
+.student-copilot-trigger-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2a5a8a;
+}
+
+.student-copilot-trigger-copy {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.student-copilot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  background: rgba(18, 16, 11, 0.24);
+}
+
+.student-copilot-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 211;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  box-shadow: -16px 0 44px rgba(29, 24, 18, 0.18);
+}
+
+.student-copilot-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.student-copilot-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.student-copilot-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.student-copilot-close {
+  border: none;
+  background: none;
+  padding: 4px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.student-copilot-policy {
+  margin: 16px 20px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(184, 76, 43, 0.14);
+  background: rgba(184, 76, 43, 0.07);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.student-copilot-policy strong { color: var(--rust); }
+
+.student-copilot-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 20px 0;
+}
+
+.student-copilot-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+
+.student-copilot-chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.student-copilot-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.student-copilot-message {
+  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.student-copilot-message--assistant { align-self: flex-start; }
+.student-copilot-message--user { align-self: flex-end; }
+
+.student-copilot-message-role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.student-copilot-message-body {
+  padding: 12px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.student-copilot-message--assistant .student-copilot-message-body {
+  background: var(--cream);
+  color: var(--ink);
+  border-bottom-left-radius: 6px;
+}
+
+.student-copilot-message--user .student-copilot-message-body {
+  background: var(--rust);
+  color: #fff;
+  border-bottom-right-radius: 6px;
+}
+
+.student-copilot-message-body--markdown > :first-child { margin-top: 0; }
+.student-copilot-message-body--markdown > :last-child { margin-bottom: 0; }
+.student-copilot-message-body--markdown p { margin-bottom: 10px; }
+.student-copilot-message-body--markdown ul,
+.student-copilot-message-body--markdown ol {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+
+.student-copilot-loading {
+  padding: 10px 14px;
+  border-radius: 16px;
+  border-bottom-left-radius: 6px;
+  background: var(--cream);
+}
+
+.student-copilot-input-row {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.student-copilot-input {
+  flex: 1;
+  resize: none;
+  min-height: 74px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+  font-family: var(--font-body);
+  outline: none;
+}
+
+.student-copilot-input:focus {
+  border-color: rgba(42, 90, 138, 0.28);
+  box-shadow: 0 0 0 4px rgba(42, 90, 138, 0.08);
+}
+
+.student-copilot-send { align-self: flex-end; }
+
+.student-quiz-lock-notice {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(184, 76, 43, 0.18);
+  background: rgba(184, 76, 43, 0.08);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rust);
+}
+
+@media (max-width: 900px) {
+  .db-ai-panel-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .student-copilot-input-row {
+    flex-direction: column;
+  }
+
+  .student-copilot-send {
+    width: 100%;
+  }
+}
