@@ -12,6 +12,10 @@
   border-right: 1px solid #1e1c1a;
 }
 
+.sidebar-shell--locked {
+  opacity: 0.82;
+}
+
 .sidebar-rail {
   width: 64px;
   background: var(--ink);
@@ -82,6 +86,15 @@
 
 .rail-item:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.rail-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.rail-item:disabled:hover {
+  background: transparent;
 }
 
 .rail-item--active {
@@ -197,8 +210,21 @@
   background: #1b1815;
 }
 
+.panel-header--disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.panel-header--disabled:hover {
+  background: transparent;
+}
+
 .panel-header:hover .panel-header-arrow {
   color: var(--rust);
+}
+
+.panel-header--disabled:hover .panel-header-arrow {
+  color: #8f8476;
 }
 
 .panel-classroom-initials {
@@ -321,6 +347,17 @@
   background: #1d1a17;
   color: var(--parchment);
   transform: translateX(2px);
+}
+
+.panel-unit--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.panel-unit--disabled:hover {
+  background: transparent;
+  color: #bfb6a7;
+  transform: none;
 }
 
 .panel-unit--active {
@@ -455,6 +492,18 @@
   border-color: rgba(184, 76, 43, 0.2);
   color: var(--parchment);
   transform: translateY(-1px);
+}
+
+.panel-collapse-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.panel-collapse-button:disabled:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+  color: var(--cream);
+  transform: none;
 }
 
 @media (max-width: 1200px) {

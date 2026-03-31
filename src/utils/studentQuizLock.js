@@ -55,6 +55,12 @@ export function buildStudentQuizLockPath(lock) {
   return `/student/classroom/${lock.classroomId}/unit/${lock.unitId}/quiz?${params.toString()}`;
 }
 
+function isAllowedStudentQuizEscapePath(pathname) {
+  return pathname === '/student'
+    || pathname === '/student/profile'
+    || pathname === '/student/settings';
+}
+
 export function getActiveStudentQuizLock(studentId) {
   if (!studentId) return null;
 
@@ -94,6 +100,17 @@ export function isStudentQuizLockPath(location, lock) {
 
   return pathname === `/student/classroom/${lock.classroomId}/unit/${lock.unitId}/quiz`
     && params.get('quizId') === lock.quizId;
+}
+
+export function buildStudentQuizEscapeState(state = {}) {
+  return { ...state, allowStudentQuizEscape: true };
+}
+
+export function isStudentQuizLockEscapeAllowed(location) {
+  if (!location) return false;
+
+  const pathname = location.pathname || '';
+  return isAllowedStudentQuizEscapePath(pathname) && !!location.state?.allowStudentQuizEscape;
 }
 
 export function getStudentQuizDraft(studentId, quizId) {

@@ -619,7 +619,11 @@ export default function PersonaChat() {
                       {missions.map((m, i) => {
                         const done = completedMissions.includes(m.id);
                         return (
-                          <div key={m.id} className={`missions-drawer-item${done ? ' missions-drawer-item--done' : ''}`}>
+                          <div
+                            key={m.id}
+                            className={`missions-drawer-item${done ? ' missions-drawer-item--done' : ''}`}
+                            style={{ '--mission-item-index': i }}
+                          >
                             <div className="missions-drawer-item-left">
                               <div className={`missions-drawer-check${done ? ' missions-drawer-check--done' : ''}`}>
                                 {done ? '✓' : i + 1}
@@ -658,7 +662,11 @@ export default function PersonaChat() {
                       </p>
                     )}
                     {messages.map((m, i) => (
-                      <div key={i} className={`chat-bubble chat-bubble--${m.role}`}>
+                      <div
+                        key={i}
+                        className={`chat-bubble chat-bubble--${m.role}`}
+                        style={{ '--chat-bubble-index': i }}
+                      >
                         <span className="chat-bubble-sender">
                           {m.role === 'user' ? 'You' : activePersona.name}
                         </span>
@@ -670,7 +678,10 @@ export default function PersonaChat() {
                       </div>
                     ))}
                     {chatLoading && (
-                      <div className="chat-bubble chat-bubble--assistant">
+                      <div
+                        className="chat-bubble chat-bubble--assistant chat-bubble--loading"
+                        style={{ '--chat-bubble-index': messages.length }}
+                      >
                         <span className="chat-bubble-sender">{activePersona.name}</span>
                         <div className="chat-bubble-text chat-bubble-text--typing">
                           <span /><span /><span />

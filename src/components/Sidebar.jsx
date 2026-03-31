@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { getUnits } from '../api/units';
 import { getClassrooms } from '../api/classrooms';
 import { useAuth } from '../hooks/useAuth';
+import { getActiveStudentQuizLock, STUDENT_QUIZ_LOCK_EVENT } from '../utils/studentQuizLock';
 import './Sidebar.css';
 
 const CLASSROOM_ACCENTS = [
@@ -74,6 +75,7 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const [activeQuizLock, setActiveQuizLock] = useState(() => getActiveStudentQuizLock(user?.id));
   const cacheKey = `${role}:${user?.id ?? 'anonymous'}`;
   const cache = getSidebarCache(cacheKey);
 
@@ -223,6 +225,23 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
   }
 
   useEffect(() => {
+    if (isTeacher) return undefined;
+
+    function syncQuizLock() {
+      setActiveQuizLock(getActiveStudentQuizLock(user?.id));
+    }
+
+    syncQuizLock();
+    window.addEventListener(STUDENT_QUIZ_LOCK_EVENT, syncQuizLock);
+    window.addEventListener('storage', syncQuizLock);
+
+    return () => {
+      window.removeEventListener(STUDENT_QUIZ_LOCK_EVENT, syncQuizLock);
+      window.removeEventListener('storage', syncQuizLock);
+    };
+  }, [isTeacher, user?.id]);
+
+  useEffect(() => {
     if (!isTeacher) return undefined;
 
     function handleClassroomsChanged() {
@@ -249,12 +268,16 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
     };
   }, [cache, isTeacher, panelId]);
 
+  const navigationLocked = !isTeacher && !!activeQuizLock;
+
   // Detect current unit from path for highlighting
   const pathParts = location.pathname.split('/').filter(Boolean);
   const unitIdx = pathParts.indexOf('unit');
   const currentUnitId = unitIdx !== -1 ? pathParts[unitIdx + 1] : null;
 
   function handleRailClick(classroomId) {
+    if (navigationLocked) return;
+
     if (classroomId === panelId) {
       if (panelCollapsed) {
         setPanelCollapsed(false);
@@ -280,7 +303,7 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
   }
 
   return (
-    <div className="sidebar-shell">
+    <div className={`sidebar-shell${navigationLocked ? ' sidebar-shell--locked' : ''}`}>
 
       {/* ── Rail ── */}
       <div className="sidebar-rail">
@@ -304,6 +327,7 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
                 className={`rail-item${c.id === panelId ? ' rail-item--active' : ''}`}
                 onClick={() => handleRailClick(c.id)}
                 title={c.name}
+                disabled={navigationLocked}
                 style={{
                   '--sidebar-accent-bg': accent.gradient,
                   '--sidebar-accent-solid': accent.solid,
@@ -332,6 +356,7 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
             className="rail-item"
             onClick={() => navigate(dashboardPath)}
             title="Dashboard"
+            disabled={navigationLocked}
           >
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <rect x="1" y="1" width="6" height="6" rx="1.5"/>
@@ -352,8 +377,11 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
           <>
           {/* Classroom header */}
           <div
-            className="panel-header"
-            onClick={() => navigate(`${classroomBase}/${visiblePanelId}`)}
+            className={`panel-header${navigationLocked ? ' panel-header--disabled' : ''}`}
+            onClick={() => {
+              if (navigationLocked) return;
+              navigate(`${classroomBase}/${visiblePanelId}`);
+            }}
             style={{
               '--sidebar-accent-bg': visiblePanelAccent.gradient,
               '--sidebar-accent-solid': visiblePanelAccent.solid,
@@ -396,7 +424,12 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
                 <NavLink
                   key={u.id}
                   to={unitPath(u.id)}
-                  className={`panel-unit${isActive ? ' panel-unit--active' : ''}`}
+                  className={`panel-unit${isActive ? ' panel-unit--active' : ''}${navigationLocked ? ' panel-unit--disabled' : ''}`}
+                  onClick={(event) => {
+                    if (!navigationLocked) return;
+                    event.preventDefault();
+                  }}
+                  tabIndex={navigationLocked ? -1 : undefined}
                 >
                   <span className="panel-unit-bar" />
                   <span className="panel-unit-name">{u.title}</span>

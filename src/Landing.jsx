@@ -321,6 +321,126 @@ function renderBackdropGraphic(variant, size) {
       );
     }
 
+    case 'compass': {
+      const cx = size * 0.5;
+      const cy = size * 0.5;
+      const rOuter = size * 0.36;
+      const rMid = size * 0.24;
+      const rInner = size * 0.1;
+      const pts = Array.from({ length: 8 }, (_, i) => {
+        const angle = (i * 45 - 90) * Math.PI / 180;
+        const r = i % 2 === 0 ? rOuter : rMid;
+        return `${cx + Math.cos(angle) * r},${cy + Math.sin(angle) * r}`;
+      }).join(' ');
+      return (
+        <>
+          <circle cx={cx} cy={cy} r={rOuter + size * 0.07} stroke="currentColor" strokeWidth="0.82" strokeDasharray={`${size * 0.016} ${size * 0.012}`} opacity="0.44" fill="none" />
+          <circle cx={cx} cy={cy} r={rOuter + size * 0.01} stroke="currentColor" strokeWidth="0.7" opacity="0.3" fill="none" />
+          <polygon points={pts} fill="currentColor" fillOpacity="0.045" stroke="currentColor" strokeWidth="1.1" opacity="0.82" />
+          {[0, 90, 180, 270].map(deg => {
+            const rad = (deg - 90) * Math.PI / 180;
+            return (
+              <line
+                key={deg}
+                x1={cx + Math.cos(rad) * (rOuter + size * 0.07)}
+                y1={cy + Math.sin(rad) * (rOuter + size * 0.07)}
+                x2={cx + Math.cos(rad) * (rOuter + size * 0.12)}
+                y2={cy + Math.sin(rad) * (rOuter + size * 0.12)}
+                stroke="currentColor" strokeWidth="1.1" opacity="0.7"
+              />
+            );
+          })}
+          {[45, 135, 225, 315].map(deg => {
+            const rad = (deg - 90) * Math.PI / 180;
+            return (
+              <line
+                key={deg}
+                x1={cx + Math.cos(rad) * (rOuter + size * 0.035)}
+                y1={cy + Math.sin(rad) * (rOuter + size * 0.035)}
+                x2={cx + Math.cos(rad) * (rOuter + size * 0.065)}
+                y2={cy + Math.sin(rad) * (rOuter + size * 0.065)}
+                stroke="currentColor" strokeWidth="0.9" opacity="0.5"
+              />
+            );
+          })}
+          <circle cx={cx} cy={cy} r={rInner} fill="currentColor" fillOpacity="0.06" stroke="currentColor" strokeWidth="1.05" opacity="0.84" />
+          <circle cx={cx} cy={cy} r={size * 0.026} fill="currentColor" fillOpacity="0.14" />
+        </>
+      );
+    }
+
+    case 'scroll': {
+      const sl = size * 0.17;
+      const sr = size * 0.83;
+      const st = size * 0.27;
+      const sb = size * 0.73;
+      const rollRx = (sr - sl) / 2;
+      const rollRy = size * 0.075;
+      return (
+        <>
+          <rect x={sl} y={st} width={sr - sl} height={sb - st} rx={size * 0.018} fill="currentColor" fillOpacity="0.035" stroke="currentColor" strokeWidth="1.05" opacity="0.76" />
+          <ellipse cx={size * 0.5} cy={st} rx={rollRx} ry={rollRy} fill="currentColor" fillOpacity="0.05" stroke="currentColor" strokeWidth="1.05" opacity="0.76" />
+          <ellipse cx={size * 0.5} cy={sb} rx={rollRx} ry={rollRy} fill="currentColor" fillOpacity="0.05" stroke="currentColor" strokeWidth="1.05" opacity="0.76" />
+          <ellipse cx={size * 0.5} cy={st} rx={rollRx - size * 0.04} ry={rollRy * 0.42} fill="none" stroke="currentColor" strokeWidth="0.82" opacity="0.34" />
+          <ellipse cx={size * 0.5} cy={sb} rx={rollRx - size * 0.04} ry={rollRy * 0.42} fill="none" stroke="currentColor" strokeWidth="0.82" opacity="0.34" />
+          {[0.38, 0.44, 0.5, 0.56, 0.62].map((y, i) => (
+            <line key={y} x1={sl + size * 0.07} y1={size * y} x2={sr - size * (0.06 + i * 0.025)} y2={size * y} stroke="currentColor" strokeWidth="0.9" opacity={0.44 - i * 0.04} />
+          ))}
+        </>
+      );
+    }
+
+    case 'quill': {
+      return (
+        <>
+          <path
+            d={`M ${size*0.68} ${size*0.13} C ${size*0.88} ${size*0.18} ${size*0.85} ${size*0.38} ${size*0.7} ${size*0.5} C ${size*0.55} ${size*0.62} ${size*0.4} ${size*0.72} ${size*0.28} ${size*0.9} L ${size*0.36} ${size*0.76} C ${size*0.44} ${size*0.64} ${size*0.54} ${size*0.56} ${size*0.67} ${size*0.46} C ${size*0.8} ${size*0.36} ${size*0.82} ${size*0.22} ${size*0.68} ${size*0.13}`}
+            fill="currentColor" fillOpacity="0.04" stroke="currentColor" strokeWidth="1.05" opacity="0.78"
+          />
+          <path
+            d={`M ${size*0.68} ${size*0.13} Q ${size*0.57} ${size*0.47} ${size*0.28} ${size*0.9}`}
+            stroke="currentColor" strokeWidth="0.92" fill="none" opacity="0.54"
+          />
+          {[[0.64,0.28,0.73,0.22],[0.6,0.34,0.7,0.3],[0.55,0.42,0.65,0.38],[0.5,0.5,0.6,0.47],[0.44,0.58,0.54,0.55],[0.39,0.66,0.48,0.63]].map(([x1,y1,x2,y2],i) => (
+            <line key={i} x1={size*x1} y1={size*y1} x2={size*x2} y2={size*y2} stroke="currentColor" strokeWidth="0.86" opacity="0.38" />
+          ))}
+          {[[0.64,0.28,0.55,0.34],[0.6,0.34,0.51,0.38],[0.55,0.42,0.46,0.46],[0.5,0.5,0.41,0.54],[0.44,0.58,0.35,0.62]].map(([x1,y1,x2,y2],i) => (
+            <line key={`b${i}`} x1={size*x1} y1={size*y1} x2={size*x2} y2={size*y2} stroke="currentColor" strokeWidth="0.82" opacity="0.3" />
+          ))}
+          <path d={`M ${size*0.28} ${size*0.9} L ${size*0.21} ${size*0.84} L ${size*0.33} ${size*0.77}`} stroke="currentColor" strokeWidth="1" opacity="0.68" fill="currentColor" fillOpacity="0.05" />
+        </>
+      );
+    }
+
+    case 'laurel': {
+      const cx = size * 0.5;
+      const cy = size * 0.52;
+      const r = size * 0.28;
+      const lw = size * 0.062;
+      const lh = size * 0.026;
+      return (
+        <>
+          {Array.from({ length: 6 }, (_, i) => {
+            const angle = (-65 + i * 26) * Math.PI / 180;
+            const lx = cx + Math.cos(Math.PI - angle) * r;
+            const ly = cy + Math.sin(Math.PI - angle) * r;
+            const rot = (Math.PI - angle) * 180 / Math.PI + 90;
+            return <ellipse key={`l${i}`} cx={lx} cy={ly} rx={lw} ry={lh} transform={`rotate(${rot} ${lx} ${ly})`} fill="currentColor" fillOpacity="0.046" stroke="currentColor" strokeWidth="0.96" opacity="0.64" />;
+          })}
+          {Array.from({ length: 6 }, (_, i) => {
+            const angle = (-65 + i * 26) * Math.PI / 180;
+            const lx = cx + Math.cos(angle) * r;
+            const ly = cy + Math.sin(angle) * r;
+            const rot = angle * 180 / Math.PI + 90;
+            return <ellipse key={`r${i}`} cx={lx} cy={ly} rx={lw} ry={lh} transform={`rotate(${rot} ${lx} ${ly})`} fill="currentColor" fillOpacity="0.046" stroke="currentColor" strokeWidth="0.96" opacity="0.64" />;
+          })}
+          <path d={`M ${cx - r*0.9} ${cy + r*0.3} A ${r} ${r} 0 0 1 ${cx + r*0.9} ${cy + r*0.3}`} stroke="currentColor" strokeWidth="0.82" fill="none" opacity="0.3" strokeDasharray={`${size*0.013} ${size*0.018}`} />
+          <path d={`M ${cx - size*0.09} ${cy + r*0.68} C ${cx - size*0.03} ${cy + r*0.62} ${cx + size*0.03} ${cy + r*0.62} ${cx + size*0.09} ${cy + r*0.68}`} stroke="currentColor" strokeWidth="1.02" fill="none" opacity="0.56" />
+          <circle cx={cx} cy={cy - r*0.14} r={size * 0.018} fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeWidth="0.9" opacity="0.64" />
+        </>
+      );
+    }
+
     default:
       return null;
   }
@@ -660,23 +780,50 @@ export default function Landing() {
         .lcur-caps { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 8px; }
         .lcur-cap { font-family: var(--ls); font-size: 12px; font-weight: 400; padding: 7px 14px; border-radius: 4px; background: rgba(245,240,232,.06); border: 1px solid rgba(245,240,232,.1); color: rgba(245,240,232,.6); }
 
-        /* â”€â”€ SECTION BACKDROPS â”€â”€ */
-        .section-backdrop { position: absolute; z-index: 0; pointer-events: none; color: rgba(90,66,45,.16); opacity: 1; }
-        .section-backdrop svg { display: block; width: var(--backdrop-size, 320px); height: var(--backdrop-size, 320px); }
-        .section-backdrop-dark { color: rgba(245,240,232,.15); }
-        .section-backdrop-dialogue { color: rgba(184,76,43,.15); }
-        .section-backdrop-analysis { color: rgba(90,66,45,.18); }
-        .section-backdrop-curriculum { color: rgba(138,107,68,.16); }
-        .section-backdrop-journey { color: rgba(168,92,58,.15); }
-        .section-backdrop-process { color: rgba(102,81,59,.17); }
-        .section-backdrop-dark.section-backdrop-assistant { color: rgba(245,240,232,.18); }
-        .section-backdrop-dark.section-backdrop-seal { color: rgba(245,240,232,.2); }
+        /* ── SECTION BACKDROPS ── */
+        .section-backdrop { position: absolute; z-index: 0; pointer-events: none; color: rgba(90,66,45,.24); opacity: 1; }
+        .section-backdrop svg { display: block; width: var(--backdrop-size, 320px); height: var(--backdrop-size, 320px); animation: lbdDrift 24s ease-in-out infinite; will-change: transform; }
+        .section-backdrop-dark { color: rgba(245,240,232,.22); }
+        .section-backdrop-dialogue { color: rgba(184,76,43,.24); }
+        .section-backdrop-analysis { color: rgba(90,66,45,.26); }
+        .section-backdrop-curriculum { color: rgba(138,107,68,.24); }
+        .section-backdrop-journey { color: rgba(168,92,58,.24); }
+        .section-backdrop-process { color: rgba(102,81,59,.26); }
+        .section-backdrop-dark.section-backdrop-assistant { color: rgba(245,240,232,.26); }
+        .section-backdrop-dark.section-backdrop-seal { color: rgba(245,240,232,.28); }
+        .section-backdrop-compass { color: rgba(90,66,45,.22); }
+        .section-backdrop-scroll { color: rgba(138,107,68,.22); }
+        .section-backdrop-quill { color: rgba(110,82,56,.24); }
+        .section-backdrop-laurel { color: rgba(90,66,45,.22); }
+        .section-backdrop-dark.section-backdrop-compass { color: rgba(245,240,232,.2); }
+        .section-backdrop-dark.section-backdrop-scroll { color: rgba(245,240,232,.18); }
+        .section-backdrop-dark.section-backdrop-laurel { color: rgba(245,240,232,.18); }
         .section-backdrop-top-right { top: -42px; right: -28px; transform: rotate(7deg); }
         .section-backdrop-top-left { top: -36px; left: -26px; transform: rotate(-8deg); }
         .section-backdrop-bottom-right { right: -34px; bottom: -46px; transform: rotate(6deg); }
         .section-backdrop-bottom-left { left: -32px; bottom: -42px; transform: rotate(-7deg); }
         .section-backdrop-mid-right { top: 50%; right: -30px; transform: translateY(-50%) rotate(7deg); }
         .section-backdrop-mid-left { top: 50%; left: -28px; transform: translateY(-50%) rotate(-7deg); }
+        .section-backdrop-hero-right { top: auto; bottom: -70px; right: -90px; left: auto; transform: rotate(14deg); }
+        .section-backdrop-hero-left { top: 68px; left: -50px; right: auto; bottom: auto; transform: rotate(-16deg); opacity: 0.7; }
+        .section-backdrop-compass svg { animation: lbdSlowSpin 90s linear infinite; }
+        .section-backdrop-scroll svg { animation: lbdDrift 30s ease-in-out infinite; animation-delay: -12s; }
+        .section-backdrop-quill svg { animation: lbdDrift 28s ease-in-out infinite; animation-delay: -7s; }
+        .section-backdrop-laurel svg { animation: lbdDrift 26s ease-in-out infinite; animation-delay: -4s; }
+        @keyframes lbdDrift {
+          0%,100% { transform: translate(0,0); }
+          30% { transform: translate(5px,-9px); }
+          65% { transform: translate(-5px,5px); }
+        }
+        @keyframes lbdSlowSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        /* ── HERO BACKDROP GRAPHIC ── */
+        .lhero-bg-compass { position: absolute; bottom: -130px; right: -110px; color: rgba(90,66,45,.1); pointer-events: none; z-index: 0; }
+        .lhero-bg-compass svg { display: block; animation: lbdSlowSpin 110s linear infinite; will-change: transform; }
+        .lhero-bg-laurel { position: absolute; top: 60px; left: -60px; color: rgba(90,66,45,.09); pointer-events: none; z-index: 0; transform: rotate(-20deg); }
+        .lhero-bg-laurel svg { display: block; animation: lbdDrift 32s ease-in-out infinite; }
 
         /* ── CURATOR CHAT MOCKUP ── */
         .m-cur { background: #1a1815; border: 1px solid rgba(245,240,232,.1); border-radius: 12px; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.45); }
@@ -733,6 +880,20 @@ export default function Landing() {
         .rev.vis { opacity: 1; transform: translateY(0); }
         .rev-d1{transition-delay:.1s} .rev-d2{transition-delay:.2s} .rev-d3{transition-delay:.3s} .rev-d4{transition-delay:.4s}
 
+        /* ── CTA AMBIENT PULSE ── */
+        .lcta::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 40% 60% at 15% 50%, rgba(184,76,43,.07) 0%, transparent 60%), radial-gradient(ellipse 40% 60% at 85% 50%, rgba(118,92,66,.06) 0%, transparent 60%); pointer-events: none; animation: ctaOrbs 8s ease-in-out infinite alternate; }
+        @keyframes ctaOrbs { 0% { opacity: 0.6; transform: scale(1); } 100% { opacity: 1; transform: scale(1.06); } }
+        /* ── STEP ROW HOVER ── */
+        .step-row { transition: background .18s; border-radius: 4px; padding-left: 6px; padding-right: 6px; }
+        .step-row:hover { background: rgba(184,76,43,.04); }
+        /* ── FEATURE BULLET HOVER ── */
+        .lfs-bullet { transition: transform .2s cubic-bezier(.16,1,.3,1); }
+        .lfs-bullet:hover { transform: translateX(3px); }
+        /* ── CAPABILITY TAGS SHIMMER ── */
+        @keyframes capShimmer { 0%,100% { background: rgba(245,240,232,.06); } 50% { background: rgba(245,240,232,.11); } }
+        .lcur-cap:nth-child(odd) { animation: capShimmer 4s ease-in-out infinite; }
+        .lcur-cap:nth-child(even) { animation: capShimmer 4s ease-in-out infinite; animation-delay: -2s; }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 1000px) {
           .ln-nav { display: none; }
@@ -779,7 +940,19 @@ export default function Landing() {
 
       {/* ── HERO ── */}
       <section className="lhero">
+        <div className="lhero-bg-compass" aria-hidden="true">
+          <svg width="640" height="640" viewBox="0 0 640 640" fill="none" xmlns="http://www.w3.org/2000/svg" strokeLinecap="round" strokeLinejoin="round">
+            {renderBackdropGraphic('compass', 640)}
+          </svg>
+        </div>
+        <div className="lhero-bg-laurel" aria-hidden="true">
+          <svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg" strokeLinecap="round" strokeLinejoin="round">
+            {renderBackdropGraphic('laurel', 320)}
+          </svg>
+        </div>
         <div className={`lh-ornament${hl ? ' in' : ''}`}>
+          <div className="lh-orn-line" />
+          <div className="lh-orn-line" />
         </div>
         <h1 className={`lh-headline${hl ? ' in' : ''}`}>
           Bring the past
@@ -800,6 +973,7 @@ export default function Landing() {
       {/* ── PERSONA DEMO ── */}
       <section className="ldemo" id="demo" ref={personaRef}>
         <SectionBackdrop className="section-backdrop-top-right" size={300} variant="dialogue" />
+        <SectionBackdrop className="section-backdrop-bottom-left" size={210} variant="scroll" />
         <div className="ldemo-inner">
           <div className="ldemo-header rev">
             <div className="sec-label">Live Demo</div>
@@ -858,6 +1032,7 @@ export default function Landing() {
         {/* ── SECTION 1: Designed for Teachers ── */}
         <section className="lfs-sec">
           <SectionBackdrop className="section-backdrop-top-left" size={320} variant="analysis" />
+          <SectionBackdrop className="section-backdrop-bottom-right" size={240} variant="quill" />
           <div className="lfs-inner sec-wrap">
 
             {/* Text */}
@@ -1009,6 +1184,7 @@ export default function Landing() {
         {/* ── SECTION 2: Built Around Your Curriculum ── */}
         <section className="lfs-sec lfs-sec-cream">
           <SectionBackdrop className="section-backdrop-bottom-right" size={320} variant="curriculum" />
+          <SectionBackdrop className="section-backdrop-top-left" size={220} variant="laurel" />
           <div className="lfs-inner lfs-inner-curriculum sec-wrap">
 
             {/* Classroom Card Mockup — exact structure from TeacherDashboard */}
@@ -1082,6 +1258,7 @@ export default function Landing() {
         {/* ── SECTION 3: Students Learn by Doing ── */}
         <section className="lfs-sec">
           <SectionBackdrop className="section-backdrop-mid-left" size={300} variant="journey" />
+          <SectionBackdrop className="section-backdrop-top-right" size={230} variant="compass" />
           <div className="lfs-inner sec-wrap">
 
             {/* Text */}
@@ -1144,6 +1321,7 @@ export default function Landing() {
         {/* ── SECTION 4: Mr. Curator ── */}
         <section className="lcurator">
           <SectionBackdrop className="section-backdrop-dark section-backdrop-bottom-left" size={340} variant="assistant" />
+          <SectionBackdrop className="section-backdrop-dark section-backdrop-top-right" size={230} variant="scroll" />
           <div className="lcurator-inner sec-wrap">
 
             {/* Text */}
@@ -1198,6 +1376,7 @@ export default function Landing() {
       {/* ── HOW IT WORKS ── */}
       <section className="lhow" id="how">
         <SectionBackdrop className="section-backdrop-top-right" size={310} variant="process" />
+        <SectionBackdrop className="section-backdrop-bottom-left" size={250} variant="laurel" />
         <div className="sec-wrap">
           <div className="lhow-inner">
             <div className="rev">
@@ -1223,6 +1402,7 @@ export default function Landing() {
       {/* ── CTA ── */}
       <section className="lcta">
         <SectionBackdrop className="section-backdrop-dark section-backdrop-mid-right" size={320} variant="seal" />
+        <SectionBackdrop className="section-backdrop-dark section-backdrop-mid-left" size={270} variant="compass" />
         <div className="lcta-eyebrow rev">Join Epoch Today</div>
         <h2 className="lcta-title rev">Ready to teach<br /><em>differently?</em></h2>
         <br />
