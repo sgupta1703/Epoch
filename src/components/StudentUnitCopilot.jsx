@@ -130,11 +130,12 @@ export default function StudentUnitCopilot({ unit, surface }) {
             </div>
 
             <div className="student-copilot-suggestions">
-              {suggestions.map((suggestion) => (
+              {suggestions.map((suggestion, index) => (
                 <button
                   key={suggestion}
                   type="button"
                   className="student-copilot-chip"
+                  style={{ '--copilot-chip-index': index }}
                   onClick={() => sendMessage(suggestion)}
                   disabled={loading}
                 >
@@ -148,6 +149,7 @@ export default function StudentUnitCopilot({ unit, surface }) {
                 <div
                   key={`${message.role}-${index}`}
                   className={`student-copilot-message student-copilot-message--${message.role}`}
+                  style={{ '--copilot-message-index': index }}
                 >
                   <span className="student-copilot-message-role">
                     {message.role === 'assistant' ? 'Copilot' : 'You'}
@@ -164,7 +166,10 @@ export default function StudentUnitCopilot({ unit, surface }) {
               ))}
 
               {loading && (
-                <div className="student-copilot-message student-copilot-message--assistant">
+                <div
+                  className="student-copilot-message student-copilot-message--assistant student-copilot-message--loading"
+                  style={{ '--copilot-message-index': messages.length }}
+                >
                   <span className="student-copilot-message-role">Copilot</span>
                   <div className="student-copilot-loading">
                     <LoadingSpinner size="sm" />

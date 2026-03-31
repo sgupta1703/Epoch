@@ -22,6 +22,7 @@ import TeacherProfile from './pages/teacher/TeacherProfile';
 import SettingsPage from './pages/settings/SettingsPage';
 import {
   buildStudentQuizLockPath,
+  isStudentQuizLockEscapeAllowed,
   getActiveStudentQuizLock,
   isStudentQuizLockPath,
   STUDENT_QUIZ_LOCK_EVENT,
@@ -75,7 +76,11 @@ function StudentQuizLockGuard({ user }) {
     };
   }, [user?.id]);
 
-  if (activeQuizLock && !isStudentQuizLockPath(location, activeQuizLock)) {
+  if (
+    activeQuizLock
+    && !isStudentQuizLockPath(location, activeQuizLock)
+    && !isStudentQuizLockEscapeAllowed(location)
+  ) {
     return <Navigate to={buildStudentQuizLockPath(activeQuizLock)} replace />;
   }
 

@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import Modal, { ModalActions } from './Modal';
+import {
+  buildStudentQuizEscapeState,
+  getActiveStudentQuizLock,
+  STUDENT_QUIZ_LOCK_EVENT,
+} from '../utils/studentQuizLock';
 import './Navbar.css';
 
 export default function Navbar({ user }) {
@@ -8,6 +14,8 @@ export default function Navbar({ user }) {
   const location = useLocation();
   const { logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeQuizLock, setActiveQuizLock] = useState(() => getActiveStudentQuizLock(user?.id));
+  const [quizExitModal, setQuizExitModal] = useState(null);
   const dropdownRef = useRef(null);
 
   const isTeacher = user?.role === 'teacher';
@@ -35,9 +43,63 @@ export default function Navbar({ user }) {
 
   const breadcrumb = getBreadcrumb();
 
+  useEffect(() => {
+    function syncQuizLock() {
+      setActiveQuizLock(getActiveStudentQuizLock(user?.id));
+    }
+
+    syncQuizLock();
+    window.addEventListener(STUDENT_QUIZ_LOCK_EVENT, syncQuizLock);
+    window.addEventListener('storage', syncQuizLock);
+
+    return () => {
+      window.removeEventListener(STUDENT_QUIZ_LOCK_EVENT, syncQuizLock);
+      window.removeEventListener('storage', syncQuizLock);
+    };
+  }, [user?.id]);
+
+  function closeQuizExitModal() {
+    setQuizExitModal(null);
+  }
+
+  function executeQuizExit(action) {
+    if (!action) return;
+
+    if (action.type === 'logout') {
+      logout();
+      navigate('/login');
+      return;
+    }
+
+    navigate(action.path, { state: buildStudentQuizEscapeState() });
+  }
+
+  function handleMenuNavigate(path, targetLabel) {
+    setMenuOpen(false);
+
+    if (isTeacher || !activeQuizLock) {
+      navigate(path);
+      return;
+    }
+
+    setQuizExitModal({
+      label: targetLabel,
+      action: { type: 'navigate', path },
+    });
+  }
+
   function handleLogout() {
-    logout();
-    navigate('/login');
+    setMenuOpen(false);
+    if (isTeacher || !activeQuizLock) {
+      logout();
+      navigate('/login');
+      return;
+    }
+
+    setQuizExitModal({
+      label: 'Sign Out',
+      action: { type: 'logout' },
+    });
   }
 
   // Close on outside click
@@ -112,39 +174,39 @@ export default function Navbar({ user }) {
                 </div>
               </div>
               <div className="navbar-dropdown-divider" />
-              <Link
-                to={dashboardPath}
+              <button
+                type="button"
                 className="navbar-dropdown-item"
-                onClick={() => setMenuOpen(false)}
+                onClick={() => handleMenuNavigate(dashboardPath, 'Dashboard')}
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
                   <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
                 </svg>
                 Dashboard
-              </Link>
-              <Link
-                to={profilePath}
+              </button>
+              <button
+                type="button"
                 className="navbar-dropdown-item"
-                onClick={() => setMenuOpen(false)}
+                onClick={() => handleMenuNavigate(profilePath, 'Profile')}
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="8" cy="5.5" r="3" />
                   <path d="M2.5 14.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
                 </svg>
                 Profile
-              </Link>
-              <Link
-                to={settingsPath}
+              </button>
+              <button
+                type="button"
                 className="navbar-dropdown-item"
-                onClick={() => setMenuOpen(false)}
+                onClick={() => handleMenuNavigate(settingsPath, 'Settings')}
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="8" cy="8" r="2.2" />
                   <path d="M13.2 9.4l.3-1.4-1.3-.8a4.8 4.8 0 0 0-.2-.6l.5-1.4-1-1-1.4.5a4.8 4.8 0 0 0-.6-.2L8 2.8l-1.4.3-.8 1.3a4.8 4.8 0 0 0-.6.2l-1.4-.5-1 1 .5 1.4a4.8 4.8 0 0 0-.2.6l-1.3.8.3 1.4 1.3.8c.1.2.1.4.2.6l-.5 1.4 1 1 1.4-.5c.2.1.4.1.6.2l.8 1.3 1.4-.3.8-1.3c.2-.1.4-.1.6-.2l1.4.5 1-1-.5-1.4c.1-.2.1-.4.2-.6 0 0 1.3-.8 1.3-.8z" />
                 </svg>
                 Settings
-              </Link>
+              </button>
               <div className="navbar-dropdown-divider" />
               <button
                 className="navbar-dropdown-item navbar-dropdown-logout"
@@ -160,6 +222,32 @@ export default function Navbar({ user }) {
         </div>
 
       </div>
+
+      <Modal
+        isOpen={!!quizExitModal}
+        onClose={closeQuizExitModal}
+        title="Quiz Still In Progress"
+        size="sm"
+        footer={(
+          <ModalActions
+            onCancel={closeQuizExitModal}
+            onConfirm={() => {
+              const pendingAction = quizExitModal?.action;
+              closeQuizExitModal();
+              executeQuizExit(pendingAction);
+            }}
+            cancelLabel="Stay on Quiz"
+            confirmLabel={`Leave for ${quizExitModal?.label || 'Destination'}`}
+          />
+        )}
+      >
+        <div className="navbar-quiz-exit-modal-copy">
+          <p>Your quiz is not completed yet.</p>
+          <p>
+            If you continue to {quizExitModal?.label || 'this page'}, you will need to come back and submit it later.
+          </p>
+        </div>
+      </Modal>
     </nav>
   );
 }

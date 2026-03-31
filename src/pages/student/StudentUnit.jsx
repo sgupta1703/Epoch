@@ -113,7 +113,7 @@ export default function StudentUnit({ user }) {
             ← Back to Courses
           </p>
 
-          {quizLocked && (
+          {quizLocked && activeTab !== 'quiz' && (
             <div className="student-unit-lock-banner">
               Quiz in progress. Submit it before leaving this page or opening another part of the app.
             </div>

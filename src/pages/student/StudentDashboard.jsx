@@ -526,13 +526,6 @@ export default function StudentDashboard({ user }) {
                   )}
                 </div>
 
-                <DashboardPrioritiesPanel
-                  priorities={priorities}
-                  loading={prioritiesLoading}
-                  fallback={prioritiesFallback}
-                  onRefresh={loadPriorities}
-                />
-
                 {/* Tabs */}
                 <div className="db-tabs">
                   <button
@@ -611,6 +604,13 @@ export default function StudentDashboard({ user }) {
                     )}
                   </>
                 )}
+
+                <DashboardPrioritiesPanel
+                  priorities={priorities}
+                  loading={prioritiesLoading}
+                  fallback={prioritiesFallback}
+                  onRefresh={loadPriorities}
+                />
               </div>
 
               {/* ── Right panel ── */}
