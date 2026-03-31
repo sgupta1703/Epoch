@@ -3,6 +3,7 @@ import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { getQuizzes, getQuizById, getAllQuizResults, analyzeStudentQuiz, overrideSaGrades } from '../../api/quiz';
 import { getAssignments, getAssignment, getAllAssignmentResults } from '../../api/assignments';
+import { getPersonas, getAllPersonaQuizResults } from '../../api/personas';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import '../../styles/pages.css';
 import './Teacher.css';
@@ -50,7 +51,7 @@ function studentInitial(name) {
   return name?.trim()?.[0]?.toUpperCase() || '?';
 }
 
-// Each unitEntry has quizEntries and assignmentEntries: [{ quiz/assignment, submissions, submissionMap }]
+// Each unitEntry has quizEntries, assignmentEntries, personaQuizEntries
 function buildOverviewRows(unitEntries, students) {
   return students.map(student => {
     const cells = unitEntries.flatMap(entry => [
@@ -69,6 +70,14 @@ function buildOverviewRows(unitEntries, students) {
         assignmentName: ae.assignment.name,
         score: ae.submissionMap.get(student.id)?.score ?? null,
         hasSubmission: ae.submissionMap.has(student.id),
+      })),
+      ...(entry.personaQuizEntries || []).map(pe => ({
+        kind: 'persona_quiz',
+        unitId: entry.unit.id,
+        personaId: pe.persona.id,
+        personaName: pe.persona.name,
+        score: pe.submissionMap.get(student.id)?.score ?? null,
+        hasSubmission: pe.submissionMap.has(student.id),
       })),
     ]);
 
@@ -92,7 +101,7 @@ function buildSummary(unitEntries, rows) {
   }, null);
 
   const gradedItems = unitEntries.reduce((sum, entry) =>
-    sum + entry.quizEntries.length + entry.assignmentEntries.length, 0);
+    sum + entry.quizEntries.length + entry.assignmentEntries.length + (entry.personaQuizEntries || []).length, 0);
 
   return {
     classAverage: allScores.length ? Math.round(allScores.reduce((s, v) => s + v, 0) / allScores.length) : null,
@@ -168,13 +177,15 @@ export default function CourseQuizResultsModal({ isOpen, onClose, units, student
     try {
       const enrolledIds = new Set(students.map(s => s.id));
       const loaded = await Promise.all(units.map(async unit => {
-        const [quizzesResult, assignmentsResult] = await Promise.allSettled([
+        const [quizzesResult, assignmentsResult, personasResult] = await Promise.allSettled([
           getQuizzes(unit.id),
           getAssignments(unit.id),
+          getPersonas(unit.id),
         ]);
 
         const quizzesList = quizzesResult.status === 'fulfilled' ? (quizzesResult.value.quizzes || []) : [];
         const assignmentsList = assignmentsResult.status === 'fulfilled' ? (assignmentsResult.value.assignments || []) : [];
+        const personasList = personasResult.status === 'fulfilled' ? (personasResult.value.personas || []) : [];
 
         // For each quiz with questions, load its submissions
         const quizEntries = await Promise.all(
@@ -206,10 +217,27 @@ export default function CourseQuizResultsModal({ isOpen, onClose, units, student
             })
         );
 
-        return { unit, quizEntries, assignmentEntries };
+        // For each quiz-mode persona, load persona quiz submissions
+        const personaQuizEntries = await Promise.all(
+          personasList
+            .filter(p => p.mode === 'quiz')
+            .map(async persona => {
+              try {
+                const { submissions } = await getAllPersonaQuizResults(persona.id);
+                const filtered = (submissions || []).filter(s => enrolledIds.has(s.student_id));
+                return { persona, submissions: filtered, submissionMap: new Map(filtered.map(s => [s.student_id, s])) };
+              } catch {
+                return { persona, submissions: [], submissionMap: new Map() };
+              }
+            })
+        );
+
+        return { unit, quizEntries, assignmentEntries, personaQuizEntries };
       }));
 
-      setUnitEntries(loaded.filter(entry => entry.quizEntries.length > 0 || entry.assignmentEntries.length > 0));
+      setUnitEntries(loaded.filter(entry =>
+        entry.quizEntries.length > 0 || entry.assignmentEntries.length > 0 || entry.personaQuizEntries.length > 0
+      ));
     } finally {
       setLoading(false);
     }
@@ -382,7 +410,8 @@ function OverviewView({ unitEntries, rows, summary, search, contentFilter, selec
   const showQuiz = contentFilter === 'all' || contentFilter === 'quiz';
   const showAssignment = contentFilter === 'all' || contentFilter === 'assignment';
   const visibleUnits = unitEntries.filter(entry =>
-    (showQuiz && entry.quizEntries.length > 0) || (showAssignment && entry.assignmentEntries.length > 0)
+    (showQuiz && (entry.quizEntries.length > 0 || (entry.personaQuizEntries || []).length > 0)) ||
+    (showAssignment && entry.assignmentEntries.length > 0)
   );
   const selectedRow = rows.find(row => row.student.id === selectedStudentId) || null;
 
@@ -647,7 +676,10 @@ function StudentOverviewBoard({ row, unitEntries, showQuiz, showAssignment, onOp
     });
   }
 
-  const allQuizScores = unitEntries.flatMap(e => e.quizEntries.map(qe => qe.submissionMap.get(row.student.id)?.score)).filter(s => s !== null && s !== undefined);
+  const allQuizScores = unitEntries.flatMap(e => [
+    ...e.quizEntries.map(qe => qe.submissionMap.get(row.student.id)?.score),
+    ...(e.personaQuizEntries || []).map(pe => pe.submissionMap.get(row.student.id)?.score),
+  ]).filter(s => s !== null && s !== undefined);
   const assignmentScores = unitEntries.flatMap(e => e.assignmentEntries.map(ae => ae.submissionMap.get(row.student.id)?.score)).filter(s => s !== null && s !== undefined);
   const quizAverage = allQuizScores.length ? Math.round(allQuizScores.reduce((s, v) => s + v, 0) / allQuizScores.length) : null;
   const assignmentAverage = assignmentScores.length ? Math.round(assignmentScores.reduce((s, v) => s + v, 0) / assignmentScores.length) : null;
@@ -673,16 +705,19 @@ function StudentOverviewBoard({ row, unitEntries, showQuiz, showAssignment, onOp
         {unitEntries.map(entry => {
           const visibleQuizEntries = showQuiz ? entry.quizEntries : [];
           const visibleAssignmentEntries = showAssignment ? entry.assignmentEntries : [];
-          if (visibleQuizEntries.length === 0 && visibleAssignmentEntries.length === 0) return null;
+          if (visibleQuizEntries.length === 0 && visibleAssignmentEntries.length === 0 && (entry.personaQuizEntries || []).length === 0) return null;
           const isOpen = openUnits.has(entry.unit.id);
 
           // Score summary for collapsed header
           const unitQuizScores = visibleQuizEntries.map(qe => qe.submissionMap.get(row.student.id)?.score).filter(s => s !== null && s !== undefined);
+          const unitPersonaQuizScores = (entry.personaQuizEntries || []).map(pe => pe.submissionMap.get(row.student.id)?.score).filter(s => s !== null && s !== undefined);
           const unitAsgnScores = visibleAssignmentEntries.map(ae => ae.submissionMap.get(row.student.id)?.score).filter(s => s !== null && s !== undefined);
-          const allUnitScores = [...unitQuizScores, ...unitAsgnScores];
+          const allUnitScores = [...unitQuizScores, ...unitPersonaQuizScores, ...unitAsgnScores];
           const unitAvg = allUnitScores.length ? Math.round(allUnitScores.reduce((s, v) => s + v, 0) / allUnitScores.length) : null;
-          const submittedCount = visibleQuizEntries.filter(qe => qe.submissionMap.has(row.student.id)).length + visibleAssignmentEntries.filter(ae => ae.submissionMap.has(row.student.id)).length;
-          const totalCount = visibleQuizEntries.length + visibleAssignmentEntries.length;
+          const submittedCount = visibleQuizEntries.filter(qe => qe.submissionMap.has(row.student.id)).length + visibleAssignmentEntries.filter(ae => ae.submissionMap.has(row.student.id)).length + (entry.personaQuizEntries || []).filter(pe => pe.submissionMap.has(row.student.id)).length;
+          const totalCount = visibleQuizEntries.length + visibleAssignmentEntries.length + (entry.personaQuizEntries || []).length;
+
+          const visiblePersonaQuizEntries = showQuiz ? (entry.personaQuizEntries || []) : [];
 
           return (
             <div key={entry.unit.id} style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: '#fcfaf6' }}>
@@ -721,7 +756,29 @@ function StudentOverviewBoard({ row, unitEntries, showQuiz, showAssignment, onOp
                     </div>
                   )}
 
-                  {visibleQuizEntries.length > 0 && visibleAssignmentEntries.length > 0 && (
+                  {visiblePersonaQuizEntries.length > 0 && (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: `${visibleQuizEntries.length > 0 ? '14px' : '0'} 0 12px` }}>
+                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', padding: '0 6px' }}>Persona Quizzes</span>
+                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(visiblePersonaQuizEntries.length, 3)}, minmax(0, 1fr))`, gap: 12 }}>
+                        {visiblePersonaQuizEntries.map(pe => (
+                          <SubmissionOverviewCard
+                            key={pe.persona.id}
+                            label={pe.persona.name}
+                            submission={pe.submissionMap.get(row.student.id)}
+                            accent="#ede9fe"
+                            accentColor="#5b21b6"
+                            onOpen={null}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {(visibleQuizEntries.length > 0 || visiblePersonaQuizEntries.length > 0) && visibleAssignmentEntries.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0 12px' }}>
                       <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                       <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', padding: '0 6px' }}>Assignments</span>
@@ -764,9 +821,11 @@ function SubmissionOverviewCard({ label, submission, accent, accentColor, onOpen
       <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, minHeight: 42 }}>
         {submitted ? `Submitted ${formatSubmittedAt(submission)}` : 'No submission yet'}
       </div>
-      <button className="btn btn-ghost" onClick={onOpen} disabled={!submitted} style={{ justifyContent: 'center', opacity: submitted ? 1 : 0.55 }}>
-        {submitted ? 'Open Submission' : 'Awaiting Submission'}
-      </button>
+      {onOpen !== null && (
+        <button className="btn btn-ghost" onClick={onOpen} disabled={!submitted} style={{ justifyContent: 'center', opacity: submitted ? 1 : 0.55 }}>
+          {submitted ? 'Open Submission' : 'Awaiting Submission'}
+        </button>
+      )}
     </div>
   );
 }

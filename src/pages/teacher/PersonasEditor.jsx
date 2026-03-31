@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import AppDatePicker from '../../components/AppDatePicker';
 import Modal, { ModalActions } from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { getPersonas, createPersona, updatePersona, deletePersona } from '../../api/personas';
+import { getPersonas, createPersona, updatePersona, deletePersona, generateMissions } from '../../api/personas';
 import '../../styles/pages.css';
 import './Teacher.css';
 
@@ -16,7 +16,30 @@ const BLANK_FORM = {
   year_start: '',
   year_end: '',
   location: '',
+  mode: 'free',
+  missions: [],
 };
+
+const MODE_OPTIONS = [
+  {
+    value: 'free',
+    label: 'Free Conversation',
+    icon: '💬',
+    desc: 'Open-ended chat. Students learn by exploring at their own pace.',
+  },
+  {
+    value: 'missions',
+    label: 'Mission-Based',
+    icon: '🎯',
+    desc: 'Students work through specific objectives during the conversation.',
+  },
+  {
+    value: 'quiz',
+    label: 'Quiz After Chat',
+    icon: '📝',
+    desc: 'A personalized quiz is generated from the student\'s conversation once they finish.',
+  },
+];
 
 export default function PersonasEditor({ unit }) {
   const [personas, setPersonas] = useState([]);
@@ -31,6 +54,9 @@ export default function PersonasEditor({ unit }) {
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [generatingMissions, setGeneratingMissions] = useState(false);
+  const [newMissionText, setNewMissionText] = useState('');
 
   useEffect(() => {
     if (!unit?.id) return;
@@ -57,6 +83,7 @@ export default function PersonasEditor({ unit }) {
     setEditTarget(null);
     setForm(BLANK_FORM);
     setFormError('');
+    setNewMissionText('');
     setModalOpen(true);
   }
 
@@ -70,8 +97,11 @@ export default function PersonasEditor({ unit }) {
       year_start:  persona.year_start ?? '',
       year_end:    persona.year_end   ?? '',
       location:    persona.location   || '',
+      mode:        persona.mode       || 'free',
+      missions:    persona.missions   || [],
     });
     setFormError('');
+    setNewMissionText('');
     setModalOpen(true);
   }
 
@@ -80,6 +110,10 @@ export default function PersonasEditor({ unit }) {
     if (!form.year_start)    { setFormError('Start year is required.');       return; }
     if (form.year_end && Number(form.year_end) < Number(form.year_start)) {
       setFormError('End year must be after start year.');
+      return;
+    }
+    if (form.mode === 'missions' && form.missions.length === 0) {
+      setFormError('Add at least one mission, or switch to a different mode.');
       return;
     }
 
@@ -94,6 +128,8 @@ export default function PersonasEditor({ unit }) {
       year_start:  form.year_start  ? Number(form.year_start) : null,
       year_end:    form.year_end    ? Number(form.year_end)   : null,
       location:    form.location.trim() || null,
+      mode:        form.mode,
+      missions:    form.missions,
     };
 
     try {
@@ -122,6 +158,49 @@ export default function PersonasEditor({ unit }) {
     } catch { /* silent */ } finally { setDeleting(false); }
   }
 
+  async function handleGenerateMissions() {
+    if (!form.name.trim() || !form.description.trim()) {
+      setFormError('Fill in the persona name and background description before generating missions.');
+      return;
+    }
+    setFormError('');
+    setGeneratingMissions(true);
+    try {
+      // If editing an existing persona, generate from saved persona ID
+      if (editTarget) {
+        const { missions } = await generateMissions(editTarget.id);
+        setForm(f => ({ ...f, missions }));
+      } else {
+        // Need to create a temporary approach: generate missions using the unit context + form data
+        // We'll call it by saving a temp persona first, or better: just save first then generate
+        // For a new (unsaved) persona, we need a different approach.
+        // Best approach: ask backend to generate from form data inline
+        // We'll just build a simple client-side call using the form data
+        setFormError('Save the persona first, then use "Generate Missions" to get AI suggestions.');
+      }
+    } catch (err) {
+      setFormError(err.response?.data?.error || 'Failed to generate missions.');
+    } finally {
+      setGeneratingMissions(false);
+    }
+  }
+
+  function addMission() {
+    const text = newMissionText.trim();
+    if (!text) return;
+    const id = `m${Date.now()}`;
+    setForm(f => ({ ...f, missions: [...f.missions, { id, text }] }));
+    setNewMissionText('');
+  }
+
+  function removeMission(id) {
+    setForm(f => ({ ...f, missions: f.missions.filter(m => m.id !== id) }));
+  }
+
+  function updateMissionText(id, text) {
+    setForm(f => ({ ...f, missions: f.missions.map(m => m.id === id ? { ...m, text } : m) }));
+  }
+
   function field(key) {
     return e => setForm(f => ({ ...f, [key]: e.target.value }));
   }
@@ -131,6 +210,11 @@ export default function PersonasEditor({ unit }) {
     if (p.year_start) parts.push(p.year_end ? `${p.year_start}–${p.year_end}` : String(p.year_start));
     if (p.location)   parts.push(p.location);
     return parts.join(' · ');
+  }
+
+  function modeLabel(mode) {
+    const opt = MODE_OPTIONS.find(o => o.value === mode);
+    return opt ? `${opt.icon} ${opt.label}` : 'Free Conversation';
   }
 
   if (loading) return <LoadingSpinner fullPage label="Loading personas…" />;
@@ -169,6 +253,8 @@ export default function PersonasEditor({ unit }) {
                   Min. {p.min_turns} exchange{p.min_turns !== 1 ? 's' : ''}
                   {formatContextBadge(p) && ` · ${formatContextBadge(p)}`}
                   {p.due_date && ` · Due ${new Date(p.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  {' · '}{modeLabel(p.mode || 'free')}
+                  {p.mode === 'missions' && p.missions?.length > 0 && ` (${p.missions.length} mission${p.missions.length !== 1 ? 's' : ''})`}
                 </div>
               </div>
               <div className="persona-item-actions">
@@ -262,8 +348,6 @@ export default function PersonasEditor({ unit }) {
               placeholder="e.g. Richmond, Virginia · The Western Front · Ancient Rome"
             />
           </div>
-
-
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
@@ -282,6 +366,137 @@ export default function PersonasEditor({ unit }) {
             <AppDatePicker value={form.due_date} onChange={val => setForm(f => ({ ...f, due_date: val }))} />
           </div>
         </div>
+
+        {/* ── Conversation Mode ── */}
+        <div className="persona-context-section" style={{ marginTop: 20 }}>
+          <div className="persona-context-label">Conversation Mode</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {MODE_OPTIONS.map(opt => (
+              <label
+                key={opt.value}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  padding: '12px 14px',
+                  borderRadius: 8,
+                  border: `2px solid ${form.mode === opt.value ? 'var(--rust)' : 'var(--border)'}`,
+                  background: form.mode === opt.value ? 'rgba(181,69,27,0.05)' : '#fff',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="persona-mode"
+                  value={opt.value}
+                  checked={form.mode === opt.value}
+                  onChange={() => setForm(f => ({ ...f, mode: opt.value }))}
+                  style={{ marginTop: 2, flexShrink: 0 }}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
+                    {opt.icon} {opt.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5 }}>
+                    {opt.desc}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Missions Editor (only shown when mode === 'missions') ── */}
+        {form.mode === 'missions' && (
+          <div className="persona-context-section" style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div className="persona-context-label" style={{ marginBottom: 0 }}>Missions</div>
+              {editTarget && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, padding: '4px 12px' }}
+                  onClick={handleGenerateMissions}
+                  disabled={generatingMissions}
+                >
+                  {generatingMissions ? 'Generating…' : '✨ Generate with AI'}
+                </button>
+              )}
+              {!editTarget && (
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  Save persona first to use AI generation
+                </span>
+              )}
+            </div>
+
+            {form.missions.length === 0 && (
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+                No missions yet. Add missions below or use AI generation after saving.
+              </p>
+            )}
+
+            {form.missions.map((m, i) => (
+              <div key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)', paddingTop: 10, minWidth: 20 }}>{i + 1}.</span>
+                <textarea
+                  rows={2}
+                  value={m.text}
+                  onChange={e => updateMissionText(m.id, e.target.value)}
+                  style={{ flex: 1, fontSize: 13, resize: 'vertical' }}
+                  placeholder="Describe the mission objective…"
+                />
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: '6px 10px', fontSize: 13, flexShrink: 0, marginTop: 2 }}
+                  onClick={() => removeMission(m.id)}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <input
+                type="text"
+                value={newMissionText}
+                onChange={e => setNewMissionText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addMission(); } }}
+                placeholder="Add a new mission…"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="btn btn-dark"
+                style={{ flexShrink: 0 }}
+                onClick={addMission}
+                disabled={!newMissionText.trim()}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Quiz mode info ── */}
+        {form.mode === 'quiz' && (
+          <div style={{
+            marginTop: 16,
+            padding: '12px 14px',
+            borderRadius: 8,
+            background: 'rgba(181,69,27,0.05)',
+            border: '1px solid rgba(181,69,27,0.2)',
+            fontSize: 13,
+            color: 'var(--ink)',
+            lineHeight: 1.6,
+          }}>
+            <strong>How quiz mode works:</strong>
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: 18 }}>
+              <li>Students chat normally until they reach the minimum exchanges.</li>
+              <li>A quiz is automatically generated based on <em>what the student discussed</em> — unique to each student.</li>
+              <li>Once the quiz starts, the conversation is locked (students can't go back to chat).</li>
+              <li>Scores appear on the results page alongside other assignments.</li>
+            </ul>
+          </div>
+        )}
       </Modal>
 
       {/* Delete Modal */}

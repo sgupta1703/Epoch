@@ -749,6 +749,82 @@ How to coach:
   return result.response.text().trim() || 'Sorry, I had trouble responding. Try again.';
 }
 
+async function generatePersonaMissions(persona, unitContext) {
+  const prompt = `You are a history educator designing conversation missions for a student interacting with a historical persona.
+
+Unit Context: ${unitContext}
+
+Persona Name: ${persona.name}
+Persona Background: ${persona.description || '(no description)'}
+Time Period: ${persona.year_start ? (persona.year_end ? `${persona.year_start}–${persona.year_end}` : String(persona.year_start)) : 'Unknown'}
+Location: ${persona.location || 'Unknown'}
+
+Generate 4–6 conversation missions. Each mission is a specific learning objective the student should explore by talking to this persona. Missions should guide students to uncover authentic historical perspectives, personal experiences, and key events from this figure's life and era.
+
+Missions should be:
+- Specific and engaging (not "ask about their life" — instead "ask about the moment they decided to...")
+- Varied: mix personal experience, historical events, moral dilemmas, and daily life
+- Grounded in what this persona would realistically know and care about
+- Written as clear, actionable student prompts
+
+Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
+[
+  {"id": "<uuid-style short id like m1, m2...>", "text": "<the mission prompt for the student>"}
+]`;
+
+  const result = await model.generateContent(prompt);
+  let raw = result.response.text().trim();
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('[');
+  const end = raw.lastIndexOf(']');
+  if (start === -1 || end === -1) throw new Error('generatePersonaMissions: no JSON array in response');
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+async function generatePersonaQuizQuestions(persona, conversation, unitContext) {
+  const studentMessages = conversation
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .join('\n');
+
+  const prompt = `You are a history teacher creating a personalized quiz for a student who just had a conversation with a historical persona.
+
+Unit Context: ${unitContext}
+
+Persona: ${persona.name} (${persona.year_start || ''}${persona.year_end ? '–' + persona.year_end : ''}, ${persona.location || ''})
+Persona Background: ${persona.description || '(none)'}
+
+The student's messages during the conversation:
+"""
+${studentMessages}
+"""
+
+Based on the TOPICS and IDEAS the student discussed (not just what the persona said), generate 5 quiz questions that test the student's understanding of the historical content they explored in this specific conversation.
+
+Focus the questions on:
+- Historical facts and events the student brought up or asked about
+- Concepts the student should have learned from this conversation
+- The persona's historical context (time period, key events, significance)
+
+Question types: mix multiple_choice (3) and short_answer (2).
+
+Return ONLY a valid JSON array. No explanation, no markdown, no backticks. Each object must have:
+- "question_text": string
+- "type": "multiple_choice" or "short_answer"
+- "options": array of 4 strings (multiple_choice only, otherwise null)
+- "correct_answer": string
+
+[...]`;
+
+  const result = await model.generateContent(prompt);
+  let raw = result.response.text().trim();
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('[');
+  const end = raw.lastIndexOf(']');
+  if (start === -1 || end === -1) throw new Error('generatePersonaQuizQuestions: no JSON array in response');
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
 module.exports = {
   generateNotes,
   chatWithEpochAssistant,
@@ -762,4 +838,6 @@ module.exports = {
   generateTimeline,
   evaluateEssayOutline,
   chatWithEssayGuide,
+  generatePersonaMissions,
+  generatePersonaQuizQuestions,
 };

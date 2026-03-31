@@ -1409,6 +1409,81 @@
   letter-spacing: 0.02em;
 }
 
+/* ── Persona Missions Panel ── */
+.persona-missions-panel {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  background: linear-gradient(180deg, rgba(248,242,233,0.6) 0%, rgba(255,255,255,0) 100%);
+}
+
+.persona-missions-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.persona-mission-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.persona-mission-item:hover {
+  background: rgba(181,69,27,0.04);
+}
+
+.persona-mission-item--done .persona-mission-text {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.persona-mission-check {
+  flex-shrink: 0;
+  margin-top: 2px;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--rust);
+  cursor: pointer;
+}
+
+.persona-mission-text {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.persona-missions-progress {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+/* ── Quiz prompt banner ── */
+.chat-quiz-prompt {
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(181,69,27,0.06) 0%, rgba(255,255,255,0) 100%);
+  text-align: center;
+}
+
+/* ── Persona Quiz view (take / results) ── */
+.persona-quiz-take,
+.persona-quiz-results {
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+}
+
 /* ── Keyframes ── */
 @keyframes warpIn {
   0%   { opacity: 0; transform: scale(0.988) translateY(6px); }
