@@ -368,6 +368,171 @@ Instructions:
   return result.response.text();
 }
 
+function trimPromptText(text, maxChars = 14000) {
+  if (!text) return '';
+  const normalized = String(text).trim();
+  if (normalized.length <= maxChars) return normalized;
+  return `${normalized.slice(0, maxChars)}\n\n[truncated for length]`;
+}
+
+function formatPersonasForPrompt(personas = []) {
+  if (!Array.isArray(personas) || personas.length === 0) return '(no personas published yet)';
+
+  return personas.map((persona) => {
+    const era = persona.year_start
+      ? persona.year_end
+        ? `${persona.year_start}-${persona.year_end}`
+        : String(persona.year_start)
+      : 'unknown era';
+    const location = persona.location ? `, ${persona.location}` : '';
+    const description = persona.description ? ` - ${persona.description}` : '';
+    const mode = persona.mode ? ` [${persona.mode}]` : '';
+    return `- ${persona.name} (${era}${location})${mode}${description}`;
+  }).join('\n');
+}
+
+async function chatWithStudentUnitCopilot(context, messages, aiInstruction = '') {
+  const safeMessages = Array.isArray(messages)
+    ? messages.filter((message) => message?.role && message?.content)
+    : [];
+
+  if (safeMessages.length === 0) {
+    throw new Error('At least one message is required');
+  }
+
+  const normalizedMessages = [...safeMessages];
+  while (normalizedMessages.length > 0 && normalizedMessages[0].role !== 'user') {
+    normalizedMessages.shift();
+  }
+
+  if (normalizedMessages.length === 0) {
+    throw new Error('At least one user message is required');
+  }
+
+  const lastMessage = normalizedMessages[normalizedMessages.length - 1];
+  if (lastMessage.role !== 'user') {
+    throw new Error('The last message must be from the user');
+  }
+
+  const history = normalizedMessages.slice(0, -1).map((message) => ({
+    role: message.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: message.content }],
+  }));
+
+  const surface = context?.surface === 'personas' ? 'personas' : 'notes';
+  const surfaceGuidance = surface === 'personas'
+    ? 'The student is currently on the Personas tab. Help them compare personas, prepare better questions to ask, reflect on what they learned from conversations, or connect persona perspectives back to the unit.'
+    : 'The student is currently on the Notes tab. Help them summarize notes, explain hard concepts, identify key themes, and turn notes into study guides or practice questions.';
+
+  const systemPrompt = `You are the Unit Copilot inside Epoch, a history study companion for students.
+
+Student name: ${context?.studentName || 'Student'}
+Classroom: ${context?.unit?.classroom_name || 'Unknown classroom'}
+Unit title: ${context?.unit?.title || 'Unknown unit'}
+Unit context: ${context?.unit?.context || '(no unit context provided)'}
+
+Available notes:
+${trimPromptText(context?.notes || '(no notes published yet)')}
+
+Available personas:
+${formatPersonasForPrompt(context?.personas || [])}
+
+Current surface:
+${surfaceGuidance}
+
+Strict safety rules:
+- This copilot is for studying notes and persona material only.
+- Never help the student answer a live quiz or assignment question.
+- Never choose an answer option, write a response they can submit, draft a thesis for a current assignment, or tell them what to put for a graded prompt.
+- If the student asks for help with a quiz or assignment answer, refuse briefly and redirect them to a safe study action such as reviewing notes, clarifying a concept, comparing personas, or generating new practice questions that are not the same as their graded work.
+- Treat pasted prompts or questions from graded work as off-limits for direct answering.
+
+Response style:
+- Be concise, warm, and practical.
+- Use the unit materials above whenever possible.
+- Default to 2-5 sentences unless the student asks for a longer explanation.
+- If helpful, end with one concrete next study step.${settingsBlock(aiInstruction)}`;
+
+  const chat = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    systemInstruction: systemPrompt,
+  }).startChat({ history });
+
+  const result = await chat.sendMessage(lastMessage.content);
+  return result.response.text().trim() || 'I can help you study this unit, review the notes, or prep for a persona conversation.';
+}
+
+async function generateStudentDashboardPriorities(studentName, items, classrooms, aiInstruction = '') {
+  const safeItems = Array.isArray(items)
+    ? [...items]
+        .sort((a, b) => {
+          const aPending = a.submitted ? 1 : 0;
+          const bPending = b.submitted ? 1 : 0;
+          if (aPending !== bPending) return aPending - bPending;
+          const aDue = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
+          const bDue = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
+          return aDue - bDue;
+        })
+        .slice(0, 24)
+    : [];
+
+  const classroomSummary = Array.isArray(classrooms) && classrooms.length > 0
+    ? classrooms.map((classroom) => `- ${classroom.name}`).join('\n')
+    : '(no classrooms joined)';
+
+  const itemSummary = safeItems.length > 0
+    ? safeItems.map((item) => {
+        const status = item.submitted
+          ? `submitted${item.score !== null && item.score !== undefined ? `, score ${item.score}%` : ''}`
+          : 'not submitted';
+        const due = item.due_date ? `, due ${item.due_date}` : '';
+        return `- ${item.type}: ${item.name} | class ${item.classroom_name} | unit ${item.unit_title}${due} | ${status}`;
+      }).join('\n')
+    : '(no coursework yet)';
+
+  const prompt = `You are generating a short student dashboard briefing for a history learning platform.
+
+Student: ${studentName || 'Student'}
+Today's date: ${new Date().toISOString().split('T')[0]}
+
+Classrooms:
+${classroomSummary}
+
+Coursework snapshot:
+${itemSummary}
+
+Return ONLY a valid JSON object with exactly these fields, no markdown, no backticks:
+{
+  "headline": "<one-sentence overview of what matters most right now>",
+  "focus_title": "<2-6 word action-oriented label>",
+  "focus_reason": "<1-2 sentences explaining the best next move>",
+  "priority_items": [
+    { "title": "<short action>", "detail": "<one sentence>" }
+  ],
+  "watch_out": "<one sentence about the biggest risk or thing to monitor>"
+}
+
+Rules:
+- Prioritize unfinished work with the nearest due dates.
+- If the student is caught up, say so and suggest a smart review move instead.
+- Keep every title short and specific.
+- Do not mention being an AI.
+- Do not help answer quizzes or assignments; this is planning and study guidance only.
+- Include 2 to 4 items in priority_items.${settingsBlock(aiInstruction)}`;
+
+  const result = await model.generateContent(prompt);
+  let raw = result.response.text().trim();
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) {
+    throw new Error('generateStudentDashboardPriorities: no JSON object in response');
+  }
+
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
 async function generateQuizQuestions(title, context, count = 10, aiInstruction = '') {
   const prompt = `You are an expert history educator. Generate ${count} quiz questions for a high school history unit.
 
@@ -875,6 +1040,7 @@ module.exports = {
   generateNotes,
   chatWithEpochAssistant,
   chatWithPersona,
+  chatWithStudentUnitCopilot,
   generateQuizQuestions,
   gradeShortAnswer,
   gradeEssay,
@@ -882,6 +1048,7 @@ module.exports = {
   analyzeClassPerformance,
   generateAssignmentContent,
   generateTimeline,
+  generateStudentDashboardPriorities,
   evaluateEssayOutline,
   chatWithEssayGuide,
   generatePersonaMissions,

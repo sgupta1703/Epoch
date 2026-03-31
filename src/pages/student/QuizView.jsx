@@ -4,6 +4,13 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import EssayGuide from '../../components/EssayGuide';
 import { getQuizzes, getQuizById, submitQuiz, getQuizResults } from '../../api/quiz';
 import { renderMarkdown } from '../../utils/renderMarkdown';
+import {
+  clearActiveStudentQuizLock,
+  clearStudentQuizDraft,
+  getStudentQuizDraft,
+  setActiveStudentQuizLock,
+  setStudentQuizDraft,
+} from '../../utils/studentQuizLock';
 import '../../styles/pages.css';
 import './Student.css';
 
@@ -107,7 +114,7 @@ function QuizList({ unitId, user, onSelectQuiz }) {
     <div>
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 6, color: 'var(--ink)' }}>Quizzes</h2>
       <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
-        {quizzes.length} quiz{quizzes.length !== 1 ? 'zes' : ''} available
+        {quizzes.length} quiz{quizzes.length !== 1 ? 'zes' : ''} available. Once you open one, you need to submit it before leaving.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {quizzes.map(quiz => {
@@ -161,7 +168,7 @@ function QuizList({ unitId, user, onSelectQuiz }) {
 
 // ─── QUIZ TAKER ───────────────────────────────────────────────────────────────
 
-function QuizTaker({ unitId, quizId, user, onBack }) {
+function QuizTaker({ classroomId, unitId, quizId, user, onBack }) {
   const [quiz, setQuiz] = useState(null);
   const [answers, setAnswers] = useState({});
   const [submission, setSubmission] = useState(null);
@@ -174,19 +181,70 @@ function QuizTaker({ unitId, quizId, user, onBack }) {
 
   useEffect(() => { fetchAll(); }, [quizId]);
 
+  useEffect(() => {
+    if (!quiz || submission) return undefined;
+
+    function handleBeforeUnload(event) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [quiz, submission]);
+
+  useEffect(() => {
+    if (!quiz || submission) return;
+    setStudentQuizDraft(user.id, quizId, answers);
+  }, [answers, quiz, quizId, submission, user.id]);
+
+  useEffect(() => {
+    if (!submission) return;
+    clearActiveStudentQuizLock(user.id);
+    clearStudentQuizDraft(user.id, quizId);
+  }, [quizId, submission, user.id]);
+
   async function fetchAll() {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
+    setQuiz(null);
+    setSubmission(null);
+    setAnswers({});
     try {
       const { quiz } = await getQuizById(unitId, quizId);
       setQuiz(quiz);
-      if (quiz) {
-        try {
-          const { submission } = await getQuizResults(unitId, quizId, user.id);
-          if (submission) setSubmission(submission);
-        } catch { /* no submission yet */ }
+      if (!quiz) {
+        clearActiveStudentQuizLock(user.id);
+        clearStudentQuizDraft(user.id, quizId);
+        return;
       }
-    } catch { setError('Failed to load quiz.'); }
-    finally { setLoading(false); }
+
+      try {
+        const { submission } = await getQuizResults(unitId, quizId, user.id);
+        if (submission) {
+          setSubmission(submission);
+          clearActiveStudentQuizLock(user.id);
+          clearStudentQuizDraft(user.id, quizId);
+          return;
+        }
+      } catch { /* no submission yet */ }
+
+      setAnswers(getStudentQuizDraft(user.id, quizId));
+      setActiveStudentQuizLock({
+        studentId: user.id,
+        classroomId,
+        unitId: String(unitId),
+        quizId: String(quizId),
+      });
+    } catch (err) {
+      if (err.response?.status === 404) {
+        clearActiveStudentQuizLock(user.id);
+        clearStudentQuizDraft(user.id, quizId);
+      }
+      setError('Failed to load quiz.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleAnswer(questionId, answer) {
@@ -201,7 +259,7 @@ function QuizTaker({ unitId, quizId, user, onBack }) {
 
   async function handleSubmit() {
     if (!quiz?.questions) return;
-    const unanswered = quiz.questions.filter(q => !answers[q.id]);
+    const unanswered = quiz.questions.filter(q => !String(answers[q.id] || '').trim());
     if (unanswered.length > 0) { setError(`Please answer all questions. ${unanswered.length} remaining.`); return; }
     setError(''); setSubmitting(true);
     try {
@@ -212,7 +270,7 @@ function QuizTaker({ unitId, quizId, user, onBack }) {
     finally { setSubmitting(false); }
   }
 
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = quiz?.questions?.filter(q => String(answers[q.id] || '').trim()).length || 0;
   const totalCount = quiz?.questions?.length || 0;
   const guideEnabled = quiz?.essay_guide_enabled !== false;
 
@@ -220,9 +278,15 @@ function QuizTaker({ unitId, quizId, user, onBack }) {
 
   return (
     <div>
-      <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, fontSize: 13, fontFamily: 'var(--font-body)', marginBottom: 18 }}>
+      {submission ? (
+        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, fontSize: 13, fontFamily: 'var(--font-body)', marginBottom: 18 }}>
         ← All Quizzes
-      </button>
+        </button>
+      ) : (
+        <div className="student-quiz-lock-notice">
+          Quiz in progress. You need to submit before leaving or opening another page.
+        </div>
+      )}
 
       {error && <div className="alert alert-error">{error}</div>}
 
@@ -367,7 +431,7 @@ function QuizTaker({ unitId, quizId, user, onBack }) {
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 
 export default function QuizView({ user, unit }) {
-  const { unitId: routeUnitId } = useParams();
+  const { classroomId, unitId: routeUnitId } = useParams();
   const unitId = unit?.id || routeUnitId;
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedQuizId = searchParams.get('quizId');
@@ -385,7 +449,7 @@ export default function QuizView({ user, unit }) {
   }
 
   return selectedQuizId ? (
-    <QuizTaker unitId={unitId} quizId={selectedQuizId} user={user} onBack={handleBack} />
+    <QuizTaker classroomId={classroomId} unitId={unitId} quizId={selectedQuizId} user={user} onBack={handleBack} />
   ) : (
     <QuizList unitId={unitId} user={user} onSelectQuiz={handleSelectQuiz} />
   );

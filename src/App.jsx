@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -19,6 +20,12 @@ import StudentUnit from './pages/student/StudentUnit';
 import StudentProfile from './pages/student/StudentProfile';
 import TeacherProfile from './pages/teacher/TeacherProfile';
 import SettingsPage from './pages/settings/SettingsPage';
+import {
+  buildStudentQuizLockPath,
+  getActiveStudentQuizLock,
+  isStudentQuizLockPath,
+  STUDENT_QUIZ_LOCK_EVENT,
+} from './utils/studentQuizLock';
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -49,6 +56,32 @@ function RequireRole({ role: required }) {
   return <Outlet />;
 }
 
+function StudentQuizLockGuard({ user }) {
+  const location = useLocation();
+  const [activeQuizLock, setActiveQuizLock] = useState(() => getActiveStudentQuizLock(user?.id));
+
+  useEffect(() => {
+    function syncQuizLock() {
+      setActiveQuizLock(getActiveStudentQuizLock(user?.id));
+    }
+
+    syncQuizLock();
+    window.addEventListener(STUDENT_QUIZ_LOCK_EVENT, syncQuizLock);
+    window.addEventListener('storage', syncQuizLock);
+
+    return () => {
+      window.removeEventListener(STUDENT_QUIZ_LOCK_EVENT, syncQuizLock);
+      window.removeEventListener('storage', syncQuizLock);
+    };
+  }, [user?.id]);
+
+  if (activeQuizLock && !isStudentQuizLockPath(location, activeQuizLock)) {
+    return <Navigate to={buildStudentQuizLockPath(activeQuizLock)} replace />;
+  }
+
+  return <Outlet />;
+}
+
 function AppRoutes() {
   const { user, setUser } = useAuth();
 
@@ -76,15 +109,17 @@ function AppRoutes() {
           </Route>
 
           <Route element={<RequireRole role="student" />}>
-            <Route path="/student" element={<StudentDashboard user={user} />} />
-            <Route path="/student/settings" element={<SettingsPage user={user} role="student" />} />
-            <Route path="/student/profile" element={<StudentProfile user={user} />} />
-            <Route path="/student/classroom/:classroomId" element={<StudentClassroom user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId" element={<StudentUnit user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId/notes" element={<StudentUnit user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId/personas" element={<StudentUnit user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId/quiz" element={<StudentUnit user={user} />} />
-            <Route path="/student/classroom/:classroomId/unit/:unitId/assignment" element={<StudentUnit user={user} />} />
+            <Route element={<StudentQuizLockGuard user={user} />}>
+              <Route path="/student" element={<StudentDashboard user={user} />} />
+              <Route path="/student/settings" element={<SettingsPage user={user} role="student" />} />
+              <Route path="/student/profile" element={<StudentProfile user={user} />} />
+              <Route path="/student/classroom/:classroomId" element={<StudentClassroom user={user} />} />
+              <Route path="/student/classroom/:classroomId/unit/:unitId" element={<StudentUnit user={user} />} />
+              <Route path="/student/classroom/:classroomId/unit/:unitId/notes" element={<StudentUnit user={user} />} />
+              <Route path="/student/classroom/:classroomId/unit/:unitId/personas" element={<StudentUnit user={user} />} />
+              <Route path="/student/classroom/:classroomId/unit/:unitId/quiz" element={<StudentUnit user={user} />} />
+              <Route path="/student/classroom/:classroomId/unit/:unitId/assignment" element={<StudentUnit user={user} />} />
+            </Route>
           </Route>
         </Route>
 

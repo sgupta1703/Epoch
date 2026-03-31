@@ -3,12 +3,14 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import StudentUnitCopilot from '../../components/StudentUnitCopilot';
 import { getClassrooms } from '../../api/classrooms';
 import { getUnit } from '../../api/units';
 import NotesView from './NotesView';
 import PersonaChat from './PersonaChat';
 import QuizView from './QuizView';
 import AssignmentView from './AssignmentView';
+import { getActiveStudentQuizLock, STUDENT_QUIZ_LOCK_EVENT } from '../../utils/studentQuizLock';
 import '../../styles/pages.css';
 import './Student.css';
 
@@ -44,7 +46,10 @@ export default function StudentUnit({ user }) {
   const [classrooms, setClassrooms] = useState([]);
   const [unit, setUnit] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeQuizLock, setActiveQuizLock] = useState(() => getActiveStudentQuizLock(user?.id));
   const activeTab = getActiveTabFromPath(location.pathname);
+  const copilotEnabled = activeTab === 'notes' || activeTab === 'personas';
+  const quizLocked = !!activeQuizLock;
 
   useEffect(() => {
     async function fetchAll() {
@@ -65,6 +70,21 @@ export default function StudentUnit({ user }) {
     fetchAll();
   }, [classroomId, navigate, unitId]);
 
+  useEffect(() => {
+    function syncQuizLock() {
+      setActiveQuizLock(getActiveStudentQuizLock(user?.id));
+    }
+
+    syncQuizLock();
+    window.addEventListener(STUDENT_QUIZ_LOCK_EVENT, syncQuizLock);
+    window.addEventListener('storage', syncQuizLock);
+
+    return () => {
+      window.removeEventListener(STUDENT_QUIZ_LOCK_EVENT, syncQuizLock);
+      window.removeEventListener('storage', syncQuizLock);
+    };
+  }, [user?.id]);
+
   if (loading) return (
     <>
       <Navbar user={user} />
@@ -82,10 +102,22 @@ export default function StudentUnit({ user }) {
         <Sidebar classrooms={classrooms} activeId={classroomId} role="student" loading={loading} />
 
         <main className="page-main">
-          <p className="page-eyebrow" style={{ marginBottom: 8, cursor: 'pointer' }}
-            onClick={() => navigate(`/student/classroom/${classroomId}`)}>
+          <p
+            className={`page-eyebrow ${quizLocked ? 'student-unit-lock-link' : ''}`}
+            style={{ marginBottom: 8, cursor: quizLocked ? 'not-allowed' : 'pointer' }}
+            onClick={() => {
+              if (quizLocked) return;
+              navigate(`/student/classroom/${classroomId}`);
+            }}
+          >
             ← Back to Courses
           </p>
+
+          {quizLocked && (
+            <div className="student-unit-lock-banner">
+              Quiz in progress. Submit it before leaving this page or opening another part of the app.
+            </div>
+          )}
 
           <div className="student-unit-hero">
             <div className="page-header-left student-unit-hero-copy">
@@ -99,6 +131,7 @@ export default function StudentUnit({ user }) {
                   Due {new Date(unit.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                 </span>
               )}
+              {copilotEnabled && <StudentUnitCopilot unit={unit} surface={activeTab} />}
             </div>
           </div>
 
@@ -106,8 +139,12 @@ export default function StudentUnit({ user }) {
             {TABS.map(t => (
               <button
                 key={t.key}
-                className={`student-unit-quicknav-card ${activeTab === t.key ? 'student-unit-quicknav-card--active' : ''}`}
-                onClick={() => navigate(getTabPath(classroomId, unitId, t.key))}
+                className={`student-unit-quicknav-card ${activeTab === t.key ? 'student-unit-quicknav-card--active' : ''}${quizLocked && t.key !== 'quiz' ? ' student-unit-quicknav-card--disabled' : ''}`}
+                onClick={() => {
+                  if (quizLocked && t.key !== 'quiz') return;
+                  navigate(getTabPath(classroomId, unitId, t.key));
+                }}
+                disabled={quizLocked && t.key !== 'quiz'}
               >
                 <span className="student-unit-quicknav-eyebrow">{TAB_DETAILS[t.key].eyebrow}</span>
                 <strong className="student-unit-quicknav-title">{t.label}</strong>
