@@ -5,6 +5,39 @@ import { getClassrooms } from '../api/classrooms';
 import { useAuth } from '../hooks/useAuth';
 import './Sidebar.css';
 
+const CLASSROOM_ACCENTS = [
+  {
+    gradient: 'linear-gradient(135deg, #b5451b, #d4845a)',
+    solid: '#b5451b',
+    border: 'rgba(212, 132, 90, 0.42)',
+    shadow: 'rgba(181, 69, 27, 0.28)',
+  },
+  {
+    gradient: 'linear-gradient(135deg, #1e4d8c, #4a7fc4)',
+    solid: '#1e4d8c',
+    border: 'rgba(74, 127, 196, 0.4)',
+    shadow: 'rgba(30, 77, 140, 0.28)',
+  },
+  {
+    gradient: 'linear-gradient(135deg, #166534, #4ead72)',
+    solid: '#166534',
+    border: 'rgba(78, 173, 114, 0.42)',
+    shadow: 'rgba(22, 101, 52, 0.26)',
+  },
+  {
+    gradient: 'linear-gradient(135deg, #6b21a8, #a855f7)',
+    solid: '#6b21a8',
+    border: 'rgba(168, 85, 247, 0.42)',
+    shadow: 'rgba(107, 33, 168, 0.28)',
+  },
+  {
+    gradient: 'linear-gradient(135deg, #9a3412, #f97316)',
+    solid: '#9a3412',
+    border: 'rgba(249, 115, 22, 0.42)',
+    shadow: 'rgba(154, 52, 18, 0.28)',
+  },
+];
+
 const sidebarCache = new Map();
 
 function getSidebarCache(cacheKey) {
@@ -18,6 +51,10 @@ function getSidebarCache(cacheKey) {
   }
 
   return sidebarCache.get(cacheKey);
+}
+
+function getClassroomAccent(index) {
+  return CLASSROOM_ACCENTS[((index % CLASSROOM_ACCENTS.length) + CLASSROOM_ACCENTS.length) % CLASSROOM_ACCENTS.length];
 }
 
 /**
@@ -156,6 +193,10 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
   const showUnitSkeleton = unitsLoading && units.length === 0;
   const visiblePanelClassroom = panelClassroom || panelSnapshot;
   const visiblePanelId = panelClassroom?.id || panelSnapshot?.id || panelId;
+  const visiblePanelIndex = visiblePanelId
+    ? displayClassrooms.findIndex((classroom) => classroom.id === visiblePanelId)
+    : -1;
+  const visiblePanelAccent = getClassroomAccent(visiblePanelIndex >= 0 ? visiblePanelIndex : 0);
 
   async function refreshClassroomList() {
     try {
@@ -255,16 +296,25 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
 
         {/* Classroom icons */}
         <div className="rail-classrooms">
-          {displayClassrooms.map(c => (
-            <button
-              key={c.id}
-              className={`rail-item${c.id === panelId ? ' rail-item--active' : ''}`}
-              onClick={() => handleRailClick(c.id)}
-              title={c.name}
-            >
-              <span className="rail-avatar">{getInitials(c.name)}</span>
-            </button>
-          ))}
+          {displayClassrooms.map((c, index) => {
+            const accent = getClassroomAccent(index);
+            return (
+              <button
+                key={c.id}
+                className={`rail-item${c.id === panelId ? ' rail-item--active' : ''}`}
+                onClick={() => handleRailClick(c.id)}
+                title={c.name}
+                style={{
+                  '--sidebar-accent-bg': accent.gradient,
+                  '--sidebar-accent-solid': accent.solid,
+                  '--sidebar-accent-border': accent.border,
+                  '--sidebar-accent-shadow': accent.shadow,
+                }}
+              >
+                <span className="rail-avatar">{getInitials(c.name)}</span>
+              </button>
+            );
+          })}
           {displayClassrooms.length === 0 && !loading && (
             <div className="rail-empty" title={isTeacher ? 'No classrooms' : 'No classes'}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -301,7 +351,16 @@ export default function Sidebar({ classrooms = [], activeId, role, loading = fal
         {visiblePanelClassroom && (
           <>
           {/* Classroom header */}
-          <div className="panel-header" onClick={() => navigate(`${classroomBase}/${visiblePanelId}`)}>
+          <div
+            className="panel-header"
+            onClick={() => navigate(`${classroomBase}/${visiblePanelId}`)}
+            style={{
+              '--sidebar-accent-bg': visiblePanelAccent.gradient,
+              '--sidebar-accent-solid': visiblePanelAccent.solid,
+              '--sidebar-accent-border': visiblePanelAccent.border,
+              '--sidebar-accent-shadow': visiblePanelAccent.shadow,
+            }}
+          >
             <div className="panel-classroom-initials">{getInitials(visiblePanelClassroom.name)}</div>
             <div className="panel-classroom-info">
               <div className="panel-classroom-eyebrow">{isTeacher ? 'Classroom' : 'Study Space'}</div>

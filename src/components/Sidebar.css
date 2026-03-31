@@ -61,6 +61,10 @@
 }
 
 .rail-item {
+  --sidebar-accent-bg: #252220;
+  --sidebar-accent-solid: var(--rust);
+  --sidebar-accent-border: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-shadow: rgba(0, 0, 0, 0);
   width: 46px;
   height: 46px;
   border-radius: 8px;
@@ -92,7 +96,7 @@
   transform: translateY(-50%);
   width: 3px;
   height: 22px;
-  background: var(--rust);
+  background: var(--sidebar-accent-solid);
   border-radius: 999px 0 0 999px;
 }
 
@@ -100,29 +104,31 @@
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  background: #252220;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--sidebar-accent-bg);
+  border: 1px solid var(--sidebar-accent-border);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
-  color: #f4ece1;
+  color: #fffaf5;
   letter-spacing: 0.06em;
-  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+  box-shadow: 0 8px 18px var(--sidebar-accent-shadow);
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
   user-select: none;
 }
 
 .rail-item:hover .rail-avatar {
-  border-color: rgba(255, 255, 255, 0.13);
-  background: #2d2925;
+  border-color: var(--sidebar-accent-border);
+  box-shadow: 0 10px 22px var(--sidebar-accent-shadow);
+  transform: translateY(-1px);
 }
 
 .rail-item--active .rail-avatar {
-  background: #33261f;
-  color: var(--parchment);
-  border-color: rgba(184, 76, 43, 0.32);
+  color: #fff;
+  border-color: var(--sidebar-accent-border);
+  box-shadow: 0 12px 24px var(--sidebar-accent-shadow);
 }
 
 .rail-empty {
@@ -199,16 +205,17 @@
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: var(--rust);
-  border: 1px solid rgba(184, 76, 43, 0.22);
+  background: var(--sidebar-accent-bg, var(--rust));
+  border: 1px solid var(--sidebar-accent-border, rgba(184, 76, 43, 0.22));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
   font-weight: 700;
-  color: #fff7f1;
+  color: #fff;
   letter-spacing: 0.06em;
   flex-shrink: 0;
+  box-shadow: 0 10px 24px var(--sidebar-accent-shadow, rgba(184, 76, 43, 0.18));
 }
 
 .panel-classroom-info {
