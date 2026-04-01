@@ -465,6 +465,127 @@ function SectionBackdrop({ className = '', size = 320, variant = 'dialogue' }) {
   );
 }
 
+function HeroGear({ size = 200, teeth = 14 }) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const outerR = size * 0.46;
+  const innerR = size * 0.34;
+  const hubR = size * 0.11;
+  const halfPeriod = Math.PI / teeth;
+  const halfTooth = halfPeriod * 0.42;
+  const pts = [];
+  for (let i = 0; i < teeth; i++) {
+    const theta = (i / teeth) * 2 * Math.PI - Math.PI / 2;
+    const a1 = theta - halfPeriod + halfTooth;
+    const a2 = theta - halfTooth;
+    const a3 = theta + halfTooth;
+    const a4 = theta + halfPeriod - halfTooth;
+    pts.push(
+      `${cx + Math.cos(a1) * innerR},${cy + Math.sin(a1) * innerR}`,
+      `${cx + Math.cos(a2) * outerR},${cy + Math.sin(a2) * outerR}`,
+      `${cx + Math.cos(a3) * outerR},${cy + Math.sin(a3) * outerR}`,
+      `${cx + Math.cos(a4) * innerR},${cy + Math.sin(a4) * innerR}`,
+    );
+  }
+  const gearD = `M ${pts.join(' L ')} Z`;
+  const holeD = `M ${cx + hubR} ${cy} A ${hubR} ${hubR} 0 1 0 ${cx - hubR} ${cy} A ${hubR} ${hubR} 0 1 0 ${cx + hubR} ${cy} Z`;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d={`${gearD} ${holeD}`}
+        fill="currentColor" fillOpacity="0.07"
+        stroke="currentColor" strokeWidth={size * 0.014} strokeOpacity="0.82"
+        fillRule="evenodd"
+      />
+      {[0, 60, 120].map(deg => {
+        const r = deg * Math.PI / 180;
+        const re = innerR * 0.82;
+        return (
+          <line key={deg}
+            x1={cx - Math.cos(r) * re} y1={cy - Math.sin(r) * re}
+            x2={cx + Math.cos(r) * re} y2={cy + Math.sin(r) * re}
+            stroke="currentColor" strokeWidth={size * 0.022} strokeOpacity="0.52" strokeLinecap="round"
+          />
+        );
+      })}
+      <circle cx={cx} cy={cy} r={hubR}
+        fill="currentColor" fillOpacity="0.05"
+        stroke="currentColor" strokeWidth={size * 0.012} strokeOpacity="0.74"
+      />
+    </svg>
+  );
+}
+
+function getClockAngles(offsetMinutes) {
+  const now = new Date(Date.now() + offsetMinutes * 60000);
+  const s = now.getSeconds();
+  const m = now.getMinutes() + s / 60;
+  const h = (now.getHours() % 12) + m / 60;
+  return {
+    hour: h * 30,
+    minute: m * 6,
+    second: s * 6,
+  };
+}
+
+function HeroClock({ size = 200, offsetMinutes = 0 }) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const faceR = size * 0.43;
+  const hourLen = size * 0.25;
+  const minLen = size * 0.33;
+  const secLen = size * 0.38;
+
+  const [angles, setAngles] = useState(() => getClockAngles(offsetMinutes));
+
+  useEffect(() => {
+    const tick = () => setAngles(getClockAngles(offsetMinutes));
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [offsetMinutes]);
+
+  const ticks = Array.from({ length: 60 }, (_, i) => {
+    const angle = (i / 60) * 2 * Math.PI - Math.PI / 2;
+    const isHour = i % 5 === 0;
+    const r1 = isHour ? faceR * 0.82 : faceR * 0.9;
+    return {
+      x1: cx + Math.cos(angle) * r1,
+      y1: cy + Math.sin(angle) * r1,
+      x2: cx + Math.cos(angle) * faceR,
+      y2: cy + Math.sin(angle) * faceR,
+      isHour,
+    };
+  });
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" xmlns="http://www.w3.org/2000/svg" strokeLinecap="round">
+      <circle cx={cx} cy={cy} r={faceR + size * 0.025} stroke="currentColor" strokeWidth={size * 0.022} fill="none" strokeOpacity="0.84" />
+      <circle cx={cx} cy={cy} r={faceR} fill="currentColor" fillOpacity="0.03" />
+      <circle cx={cx} cy={cy} r={faceR - size * 0.015} stroke="currentColor" strokeWidth={size * 0.006} fill="none" strokeOpacity="0.22" />
+      {ticks.map((t, i) => (
+        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
+          stroke="currentColor"
+          strokeWidth={t.isHour ? size * 0.02 : size * 0.007}
+          strokeOpacity={t.isHour ? 0.8 : 0.36}
+        />
+      ))}
+      <g transform={`rotate(${angles.hour} ${cx} ${cy})`}>
+        <line x1={cx} y1={cy + size * 0.05} x2={cx} y2={cy - hourLen}
+          stroke="currentColor" strokeWidth={size * 0.028} strokeLinecap="round" strokeOpacity="0.84" />
+      </g>
+      <g transform={`rotate(${angles.minute} ${cx} ${cy})`}>
+        <line x1={cx} y1={cy + size * 0.05} x2={cx} y2={cy - minLen}
+          stroke="currentColor" strokeWidth={size * 0.016} strokeLinecap="round" strokeOpacity="0.72" />
+      </g>
+      <g transform={`rotate(${angles.second} ${cx} ${cy})`}>
+        <line x1={cx} y1={cy + size * 0.07} x2={cx} y2={cy - secLen}
+          stroke="currentColor" strokeWidth={size * 0.007} strokeLinecap="round" strokeOpacity="0.55" />
+      </g>
+      <circle cx={cx} cy={cy} r={size * 0.026} fill="currentColor" fillOpacity="0.9" />
+    </svg>
+  );
+}
+
 const sessionTasks = [
   { Icon: CircleCheckBig, cls: 'm-task-done', title: 'Primary Source Reading', sub: 'Completed · 8 min read' },
   { Icon: CircleCheckBig, cls: 'm-task-done', title: 'Conversation with Caesar', sub: '4 exchanges · Saved to notes' },
@@ -781,23 +902,23 @@ export default function Landing() {
         .lcur-cap { font-family: var(--ls); font-size: 12px; font-weight: 400; padding: 7px 14px; border-radius: 4px; background: rgba(245,240,232,.06); border: 1px solid rgba(245,240,232,.1); color: rgba(245,240,232,.6); }
 
         /* ── SECTION BACKDROPS ── */
-        .section-backdrop { position: absolute; z-index: 0; pointer-events: none; color: rgba(90,66,45,.24); opacity: 1; }
+        .section-backdrop { position: absolute; z-index: 0; pointer-events: none; color: rgba(90,66,45,.29); opacity: 1; }
         .section-backdrop svg { display: block; width: var(--backdrop-size, 320px); height: var(--backdrop-size, 320px); animation: lbdDrift 24s ease-in-out infinite; will-change: transform; }
-        .section-backdrop-dark { color: rgba(245,240,232,.22); }
-        .section-backdrop-dialogue { color: rgba(184,76,43,.24); }
-        .section-backdrop-analysis { color: rgba(90,66,45,.26); }
-        .section-backdrop-curriculum { color: rgba(138,107,68,.24); }
-        .section-backdrop-journey { color: rgba(168,92,58,.24); }
-        .section-backdrop-process { color: rgba(102,81,59,.26); }
-        .section-backdrop-dark.section-backdrop-assistant { color: rgba(245,240,232,.26); }
-        .section-backdrop-dark.section-backdrop-seal { color: rgba(245,240,232,.28); }
-        .section-backdrop-compass { color: rgba(90,66,45,.22); }
-        .section-backdrop-scroll { color: rgba(138,107,68,.22); }
-        .section-backdrop-quill { color: rgba(110,82,56,.24); }
-        .section-backdrop-laurel { color: rgba(90,66,45,.22); }
-        .section-backdrop-dark.section-backdrop-compass { color: rgba(245,240,232,.2); }
-        .section-backdrop-dark.section-backdrop-scroll { color: rgba(245,240,232,.18); }
-        .section-backdrop-dark.section-backdrop-laurel { color: rgba(245,240,232,.18); }
+        .section-backdrop-dark { color: rgba(245,240,232,.27); }
+        .section-backdrop-dialogue { color: rgba(184,76,43,.29); }
+        .section-backdrop-analysis { color: rgba(90,66,45,.31); }
+        .section-backdrop-curriculum { color: rgba(138,107,68,.29); }
+        .section-backdrop-journey { color: rgba(168,92,58,.29); }
+        .section-backdrop-process { color: rgba(102,81,59,.31); }
+        .section-backdrop-dark.section-backdrop-assistant { color: rgba(245,240,232,.31); }
+        .section-backdrop-dark.section-backdrop-seal { color: rgba(245,240,232,.33); }
+        .section-backdrop-compass { color: rgba(90,66,45,.27); }
+        .section-backdrop-scroll { color: rgba(138,107,68,.27); }
+        .section-backdrop-quill { color: rgba(110,82,56,.29); }
+        .section-backdrop-laurel { color: rgba(90,66,45,.27); }
+        .section-backdrop-dark.section-backdrop-compass { color: rgba(245,240,232,.25); }
+        .section-backdrop-dark.section-backdrop-scroll { color: rgba(245,240,232,.23); }
+        .section-backdrop-dark.section-backdrop-laurel { color: rgba(245,240,232,.23); }
         .section-backdrop-top-right { top: -42px; right: -28px; transform: rotate(7deg); }
         .section-backdrop-top-left { top: -36px; left: -26px; transform: rotate(-8deg); }
         .section-backdrop-bottom-right { right: -34px; bottom: -46px; transform: rotate(6deg); }
@@ -805,7 +926,7 @@ export default function Landing() {
         .section-backdrop-mid-right { top: 50%; right: -30px; transform: translateY(-50%) rotate(7deg); }
         .section-backdrop-mid-left { top: 50%; left: -28px; transform: translateY(-50%) rotate(-7deg); }
         .section-backdrop-hero-right { top: auto; bottom: -70px; right: -90px; left: auto; transform: rotate(14deg); }
-        .section-backdrop-hero-left { top: 68px; left: -50px; right: auto; bottom: auto; transform: rotate(-16deg); opacity: 0.7; }
+        .section-backdrop-hero-left { top: 68px; left: -50px; right: auto; bottom: auto; transform: rotate(-16deg); opacity: 0.8; }
         .section-backdrop-compass svg { animation: lbdSlowSpin 90s linear infinite; }
         .section-backdrop-scroll svg { animation: lbdDrift 30s ease-in-out infinite; animation-delay: -12s; }
         .section-backdrop-quill svg { animation: lbdDrift 28s ease-in-out infinite; animation-delay: -7s; }
@@ -820,9 +941,7 @@ export default function Landing() {
           to { transform: rotate(360deg); }
         }
         /* ── HERO BACKDROP GRAPHIC ── */
-        .lhero-bg-compass { position: absolute; bottom: -130px; right: -110px; color: rgba(90,66,45,.1); pointer-events: none; z-index: 0; }
-        .lhero-bg-compass svg { display: block; animation: lbdSlowSpin 110s linear infinite; will-change: transform; }
-        .lhero-bg-laurel { position: absolute; top: 60px; left: -60px; color: rgba(90,66,45,.09); pointer-events: none; z-index: 0; transform: rotate(-20deg); }
+        .lhero-bg-laurel { position: absolute; top: 60px; left: -60px; color: rgba(90,66,45,.12); pointer-events: none; z-index: 0; transform: rotate(-20deg); }
         .lhero-bg-laurel svg { display: block; animation: lbdDrift 32s ease-in-out infinite; }
 
         /* ── CURATOR CHAT MOCKUP ── */
@@ -894,6 +1013,22 @@ export default function Landing() {
         .lcur-cap:nth-child(odd) { animation: capShimmer 4s ease-in-out infinite; }
         .lcur-cap:nth-child(even) { animation: capShimmer 4s ease-in-out infinite; animation-delay: -2s; }
 
+        /* ── HERO CLOCKS & GEARS ── */
+        .lhero-clock, .lhero-gear { position: absolute; pointer-events: none; z-index: 0; }
+        .lhero-clock-a { top: 5%; right: 4%; transform: rotate(14deg); color: rgba(90,66,45,.12); }
+        .lhero-clock-b { bottom: 10%; left: 1%; transform: rotate(-22deg); color: rgba(90,66,45,.1); }
+        .lhero-clock-c { top: 20%; right: 25%; transform: rotate(-7deg); color: rgba(90,66,45,.072); }
+        .lhero-clock-d { bottom: 28%; right: 16%; transform: rotate(10deg); color: rgba(90,66,45,.065); }
+        .lhero-gear-a { bottom: 4%; right: 24%; color: rgba(90,66,45,.112); }
+        .lhero-gear-a svg { animation: heroGearSpin 22s linear infinite; transform-origin: center; will-change: transform; }
+        .lhero-gear-b { top: 8%; left: 26%; color: rgba(90,66,45,.098); }
+        .lhero-gear-b svg { animation: heroGearSpin 18s linear infinite reverse; transform-origin: center; will-change: transform; }
+        .lhero-gear-c { top: 3%; right: 15%; color: rgba(90,66,45,.078); }
+        .lhero-gear-c svg { animation: heroGearSpin 13s linear infinite; transform-origin: center; will-change: transform; }
+        .lhero-gear-d { bottom: 18%; left: 18%; color: rgba(90,66,45,.092); }
+        .lhero-gear-d svg { animation: heroGearSpin 28s linear infinite reverse; transform-origin: center; will-change: transform; }
+        @keyframes heroGearSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 1000px) {
           .ln-nav { display: none; }
@@ -940,20 +1075,25 @@ export default function Landing() {
 
       {/* ── HERO ── */}
       <section className="lhero">
-        <div className="lhero-bg-compass" aria-hidden="true">
-          <svg width="640" height="640" viewBox="0 0 640 640" fill="none" xmlns="http://www.w3.org/2000/svg" strokeLinecap="round" strokeLinejoin="round">
-            {renderBackdropGraphic('compass', 640)}
-          </svg>
-        </div>
         <div className="lhero-bg-laurel" aria-hidden="true">
           <svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg" strokeLinecap="round" strokeLinejoin="round">
             {renderBackdropGraphic('laurel', 320)}
           </svg>
         </div>
-        <div className={`lh-ornament${hl ? ' in' : ''}`}>
-          <div className="lh-orn-line" />
-          <div className="lh-orn-line" />
-        </div>
+
+        {/* ── Clocks ── */}
+        <div className="lhero-clock lhero-clock-a" aria-hidden="true"><HeroClock size={260} offsetMinutes={0} /></div>
+        <div className="lhero-clock lhero-clock-b" aria-hidden="true"><HeroClock size={195} offsetMinutes={-330} /></div>
+        <div className="lhero-clock lhero-clock-c" aria-hidden="true"><HeroClock size={150} offsetMinutes={60} /></div>
+        <div className="lhero-clock lhero-clock-d" aria-hidden="true"><HeroClock size={130} offsetMinutes={-480} /></div>
+
+        {/* ── Gears ── */}
+        <div className="lhero-gear lhero-gear-a" aria-hidden="true"><HeroGear size={185} teeth={16} /></div>
+        <div className="lhero-gear lhero-gear-b" aria-hidden="true"><HeroGear size={135} teeth={12} /></div>
+        <div className="lhero-gear lhero-gear-c" aria-hidden="true"><HeroGear size={92} teeth={10} /></div>
+        <div className="lhero-gear lhero-gear-d" aria-hidden="true"><HeroGear size={115} teeth={14} /></div>
+
+
         <h1 className={`lh-headline${hl ? ' in' : ''}`}>
           Bring the past
           <span className="lh-headline-em">to life.</span>
