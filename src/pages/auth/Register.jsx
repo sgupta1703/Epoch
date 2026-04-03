@@ -4,11 +4,11 @@ import { register, login } from '../../api/auth';
 import './Auth.css';
 
 const quotes = [
-  { text: "Those who cannot remember the past are condemned to repeat it.", source: "— George Santayana" },
-  { text: "History is written by the victors.", source: "— Winston Churchill" },
-  { text: "The more you know about the past, the better prepared you are for the future.", source: "— Theodore Roosevelt" },
-  { text: "Study the past if you would define the future.", source: "— Confucius" },
-  { text: "History is a set of lies agreed upon.", source: "— Napoleon Bonaparte" },
+  { text: "Those who cannot remember the past are condemned to repeat it.", source: "George Santayana" },
+  { text: "History is written by the victors.", source: "Winston Churchill" },
+  { text: "The more you know about the past, the better prepared you are for the future.", source: "Theodore Roosevelt" },
+  { text: "Study the past if you would define the future.", source: "Confucius" },
+  { text: "History is a set of lies agreed upon.", source: "Napoleon Bonaparte" },
 ];
 
 export default function Register({ onLogin }) {
@@ -31,7 +31,7 @@ export default function Register({ onLogin }) {
         setQuoteIndex((i) => (i + 1) % quotes.length);
         setQuoteVisible(true);
       }, 450);
-    }, 2300);
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
@@ -49,10 +49,11 @@ export default function Register({ onLogin }) {
     setLoading(true);
     try {
       await register(form);
-      // Auto-login after registration
       const { user } = await login({ email: form.email, password: form.password });
       if (user.role === 'teacher') {
         localStorage.setItem('epoch_teacher_onboarding', 'needed');
+      } else if (user.role === 'student') {
+        localStorage.setItem('epoch_student_onboarding', 'needed');
       }
       onLogin(user);
       navigate(user.role === 'teacher' ? '/teacher' : '/student');
@@ -66,84 +67,88 @@ export default function Register({ onLogin }) {
   return (
     <div className="auth-page">
       <div className="auth-panel">
-        <div className="auth-brand">
+
+        <div className="auth-header">
           <Link to="/" className="auth-brand-name">Epoch</Link>
         </div>
 
-        <h1 className="auth-title">Create your account</h1>
-        <p className="auth-subtitle">Join Epoch and bring history to life.</p>
+        <div className="auth-body">
+          <p className="auth-eyebrow">Get started</p>
+          <h1 className="auth-title">Create your account</h1>
+          <p className="auth-subtitle">Join Epoch and bring history to life.</p>
 
-        {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="auth-field">
-            <label>Full Name</label>
-            <input
-              type="text"
-              name="display_name"
-              value={form.display_name}
-              onChange={handleChange}
-              placeholder="Jane Smith"
-              required
-              autoFocus
-            />
-          </div>
-
-          <div className="auth-field">
-            <label>Email</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="you@school.edu"
-              required
-            />
-          </div>
-
-          <div className="auth-field">
-            <label>Password</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="Min. 6 characters"
-              required
-            />
-          </div>
-
-          <div className="auth-field">
-            <label>I am a…</label>
-            <div className="auth-role-toggle">
-              {['student', 'teacher'].map(r => (
-                <button
-                  key={r}
-                  type="button"
-                  className={`auth-role-btn ${form.role === r ? 'auth-role-btn--active' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, role: r }))}
-                >
-                  {r === 'teacher' ? 'Educator' : 'Student'}
-                </button>
-              ))}
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="auth-field">
+              <label>Full Name</label>
+              <input
+                type="text"
+                name="display_name"
+                value={form.display_name}
+                onChange={handleChange}
+                placeholder="Jane Smith"
+                required
+                autoFocus
+              />
             </div>
-          </div>
 
-          <button className="auth-submit" type="submit" disabled={loading}>
-            {loading ? 'Creating account…' : 'Create Account'}
-          </button>
-        </form>
+            <div className="auth-field">
+              <label>Email</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="you@school.edu"
+                required
+              />
+            </div>
 
-        <p className="auth-switch">
-          Already have an account?{' '}
-          <Link to="/login">Sign in</Link>
-        </p>
+            <div className="auth-field">
+              <label>Password</label>
+              <input
+                type="password"
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                placeholder="Min. 6 characters"
+                required
+              />
+            </div>
+
+            <div className="auth-field">
+              <label>I am a…</label>
+              <div className="auth-role-toggle">
+                {['student', 'teacher'].map(r => (
+                  <button
+                    key={r}
+                    type="button"
+                    className={`auth-role-btn ${form.role === r ? 'auth-role-btn--active' : ''}`}
+                    onClick={() => setForm(f => ({ ...f, role: r }))}
+                  >
+                    {r === 'teacher' ? 'Educator' : 'Student'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button className="auth-submit" type="submit" disabled={loading}>
+              {loading ? 'Creating account…' : 'Create Account'}
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            Already have an account?{' '}
+            <Link to="/login">Sign in</Link>
+          </p>
+        </div>
       </div>
 
       <div className="auth-aside">
         <blockquote className={`auth-quote ${quoteVisible ? 'quote-fade-in' : 'quote-fade-out'}`}>
-          "{quotes[quoteIndex].text}"
-          <cite>{quotes[quoteIndex].source}</cite>
+          <p className="auth-quote-text">"{quotes[quoteIndex].text}"</p>
+          <cite>— {quotes[quoteIndex].source}</cite>
         </blockquote>
       </div>
     </div>

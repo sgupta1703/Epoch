@@ -2625,6 +2625,7 @@
 }
 
 .db-ai-panel {
+  margin-top: 32px;
   margin-bottom: 20px;
   padding: 22px 24px;
   border: 1px solid rgba(34, 88, 142, 0.16);

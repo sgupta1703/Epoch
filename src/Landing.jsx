@@ -1,6 +1,7 @@
 import { Circle, CircleArrowRight, CircleCheckBig, ChartColumnIncreasing, Drama, Landmark, MessageSquareText, NotebookPen, PencilLine, Swords, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { chatWithLandingGeorgeWashington } from './api/assistant';
 
 const persona = {
   initial: 'G',
@@ -595,11 +596,15 @@ const sessionTasks = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const showLegacyClassInsights = false;
   const [visibleMessages, setVisibleMessages] = useState([]);
   const [showTyping, setShowTyping] = useState(false);
   const [studentDraft, setStudentDraft] = useState('');
   const [studentComposing, setStudentComposing] = useState(false);
   const [studentSending, setStudentSending] = useState(false);
+  const [demoReady, setDemoReady] = useState(false);
+  const [demoInput, setDemoInput] = useState('');
+  const [demoReplying, setDemoReplying] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
 
   const messagesContainerRef = useRef(null);
@@ -634,6 +639,9 @@ export default function Landing() {
         setStudentDraft('');
         setStudentComposing(false);
         setStudentSending(false);
+        setDemoReady(false);
+        setDemoInput('');
+        setDemoReplying(false);
 
         persona.messages.forEach(msg => {
           if (msg.from === 'persona') {
@@ -667,6 +675,7 @@ export default function Landing() {
           }
           delay += 700;
         });
+        ts.push(setTimeout(() => setDemoReady(true), delay + 160));
         chatTimers.current = ts;
       }
     }, { threshold: 0.35 });
@@ -681,7 +690,37 @@ export default function Landing() {
     const el = messagesContainerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [visibleMessages, showTyping, studentDraft, studentComposing, studentSending]);
+  }, [visibleMessages, showTyping, studentDraft, studentComposing, studentSending, demoReplying]);
+
+  function handleDemoSubmit(event) {
+    event?.preventDefault?.();
+
+    const nextMessage = demoInput.trim();
+    if (!nextMessage || !demoReady || showTyping || studentComposing || demoReplying) return;
+
+    const nextTranscript = [...visibleMessages, { from: 'student', text: nextMessage }];
+    setVisibleMessages(nextTranscript);
+    setDemoInput('');
+    setDemoReplying(true);
+    setShowTyping(true);
+
+    const transcriptForApi = nextTranscript.map((message) => ({
+      role: message.from === 'persona' ? 'assistant' : 'user',
+      content: message.text,
+    }));
+
+    chatWithLandingGeorgeWashington(transcriptForApi)
+      .then(({ reply }) => {
+        setVisibleMessages(current => [...current, { from: 'persona', text: reply || 'I would answer you plainly, if you put the question again.' }]);
+      })
+      .catch(() => {
+        setVisibleMessages(current => [...current, { from: 'persona', text: 'The line from camp is faint just now. Ask me again in a moment.' }]);
+      })
+      .finally(() => {
+        setShowTyping(false);
+        setDemoReplying(false);
+      });
+  }
 
   const hl = heroLoaded;
 
@@ -786,6 +825,18 @@ export default function Landing() {
         .student-send svg { display: block; }
         .compose-caret { display: inline-block; width: 1px; height: 1.15em; background: currentColor; margin-left: 2px; vertical-align: text-bottom; animation: caretBlink 1s steps(1, end) infinite; }
         @keyframes caretBlink { 0%,45%{opacity:1}45.01%,100%{opacity:0} }
+        .pc-compose-shell { min-height: 96px; padding: 0 18px 18px; display: flex; align-items: flex-end; }
+        .pc-compose { width: 100%; display: flex; align-items: flex-end; gap: 10px; padding: 12px; background: linear-gradient(180deg, rgba(245,240,232,.76) 0%, rgba(255,255,255,.94) 100%); border: 1px solid rgba(15,14,13,.08); border-radius: 12px; box-shadow: 0 14px 28px rgba(15,14,13,.08); opacity: 0; transform: translateY(14px); pointer-events: none; transition: opacity .45s ease, transform .45s ease, box-shadow .28s ease; }
+        .pc-compose.is-ready { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .pc-compose:focus-within { box-shadow: 0 18px 34px rgba(184,76,43,.16); border-color: rgba(184,76,43,.26); }
+        .pc-compose-field { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .pc-compose-label { font-family: var(--ls); font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--li5); }
+        .pc-compose-input { width: 100%; resize: none; border: none; outline: none; background: transparent; font-family: var(--ls); font-size: 13px; font-weight: 300; line-height: 1.6; color: var(--li); min-height: 24px; max-height: 112px; }
+        .pc-compose-input::placeholder { color: rgba(15,14,13,.42); }
+        .pc-compose-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 72px; padding: 10px 14px; border: none; border-radius: 10px; background: var(--li); color: var(--lp); font-family: var(--ls); font-size: 12px; font-weight: 500; cursor: pointer; transition: transform .2s ease, background .2s ease, opacity .2s ease; }
+        .pc-compose-btn:hover:not(:disabled) { transform: translateY(-1px); background: #201e1a; }
+        .pc-compose-btn:disabled { cursor: default; opacity: .45; }
+        .pc-compose-btn.is-busy { background: var(--lr); }
 
         /* ── FEATURE SHOWCASE SECTIONS ── */
         .lfs-sec { padding: 100px 0; border-top: 1px solid var(--lb); position: relative; overflow: hidden; }
@@ -1064,7 +1115,9 @@ export default function Landing() {
       <nav className="ln">
         <div className="ln-brand">Epoch<span className="ln-brand-dot"></span></div>
         <div className="ln-nav">
-          <button className="ln-nav-btn" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>Features</button>
+          <button className="ln-nav-btn" onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}>Demo</button>
+          <button className="ln-nav-btn" onClick={() => document.getElementById('teachers')?.scrollIntoView({ behavior: 'smooth' })}>For Teachers</button>
+          <button className="ln-nav-btn" onClick={() => document.getElementById('students')?.scrollIntoView({ behavior: 'smooth' })}>For Students</button>
           <button className="ln-nav-btn" onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })}>How It Works</button>
         </div>
         <div className="ln-right">
@@ -1160,6 +1213,35 @@ export default function Landing() {
                 </div>
               )}
             </div>
+            <div className="pc-compose-shell">
+              <form className={`pc-compose${demoReady ? ' is-ready' : ''}`} onSubmit={handleDemoSubmit}>
+                <div className="pc-compose-field">
+                  <label className="pc-compose-label" htmlFor="landing-persona-input">Ask George Washington</label>
+                  <textarea
+                    id="landing-persona-input"
+                    className="pc-compose-input"
+                    rows={1}
+                    value={demoInput}
+                    onChange={(event) => setDemoInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        handleDemoSubmit(event);
+                      }
+                    }}
+                    placeholder="Ask about morale, strategy, supplies, independence, etc…"
+                    disabled={!demoReady || showTyping || studentComposing || demoReplying}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className={`pc-compose-btn${demoReplying ? ' is-busy' : ''}`}
+                  disabled={!demoReady || !demoInput.trim() || showTyping || studentComposing || demoReplying}
+                >
+                  {demoReplying ? 'Replying…' : 'Send'}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </section>
@@ -1170,7 +1252,7 @@ export default function Landing() {
       <div id="features">
 
         {/* ── SECTION 1: Designed for Teachers ── */}
-        <section className="lfs-sec">
+        <section className="lfs-sec" id="teachers">
           <SectionBackdrop className="section-backdrop-top-left" size={320} variant="analysis" />
           <SectionBackdrop className="section-backdrop-bottom-right" size={240} variant="quill" />
           <div className="lfs-inner sec-wrap">
@@ -1286,7 +1368,7 @@ export default function Landing() {
               </div>
             </div>
 
-            {false && (
+            {showLegacyClassInsights ? (
               <div className="mock rev rev-d2">
               <div className="mock-head">
                 <span className="mock-head-title">Class Insights · Roman Republic Unit</span>
@@ -1316,7 +1398,7 @@ export default function Landing() {
                 <span style={{ fontFamily: 'var(--ls)', fontSize: 10, fontWeight: 600, color: '#166534' }}>63% · ↑ +12% this week</span>
               </div>
               </div>
-            )}
+            ) : null}
 
           </div>
         </section>
@@ -1396,7 +1478,7 @@ export default function Landing() {
         </section>
 
         {/* ── SECTION 3: Students Learn by Doing ── */}
-        <section className="lfs-sec">
+        <section className="lfs-sec" id="students">
           <SectionBackdrop className="section-backdrop-mid-left" size={300} variant="journey" />
           <SectionBackdrop className="section-backdrop-top-right" size={230} variant="compass" />
           <div className="lfs-inner sec-wrap">
