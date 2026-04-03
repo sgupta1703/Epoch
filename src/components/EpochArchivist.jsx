@@ -233,7 +233,7 @@ export default function EpochArchivist() {
       setMessages(current => current.map((m, i) => i === index ? { ...m, status: 'confirmed', resultMessage: message } : m));
 
       const unitActions = ['create_unit', 'create_multiple_units', 'set_unit_visibility', 'delete_unit', 'delete_multiple_units', 'delete_all_units'];
-      const personaActions = ['create_personas'];
+      const personaActions = ['create_personas', 'create_personas_in_every_unit'];
       const classroomActions = ['create_classroom'];
       if (unitActions.includes(msg.action.name))     window.dispatchEvent(new CustomEvent('epoch:units-changed'));
       if (personaActions.includes(msg.action.name))  window.dispatchEvent(new CustomEvent('epoch:personas-changed'));

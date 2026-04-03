@@ -6,12 +6,21 @@ const {
   chatWithEpochAssistant,
   evaluateEssayOutline,
   chatWithEssayGuide,
+  chatWithGeorgeWashington,
   chatWithStudentUnitCopilot,
 } = require('../services/claude');
 const { getUserSettings, buildTeacherAiInstruction, buildStudentAiInstruction } = require('../services/userSettings');
 
 const router = express.Router();
 const STUDENT_COPILOT_SURFACES = new Set(['notes', 'personas']);
+
+function formatPersonaSummary(persona = {}) {
+  const yearPart = persona.year_start
+    ? (persona.year_end ? ` (${persona.year_start}–${persona.year_end})` : ` (b. ${persona.year_start})`)
+    : '';
+  const locPart = persona.location ? `, ${persona.location}` : '';
+  return `${persona.name}${yearPart}${locPart}`;
+}
 
 function buildAiInstructionForUser(role, settings) {
   return role === 'teacher'
@@ -146,6 +155,29 @@ router.post('/essay-guide/chat', authenticate, async (req, res, next) => {
       cleanedMessages,
       buildAiInstructionForUser(req.user.role, settings),
     );
+    res.json({ reply });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/landing/george-washington', async (req, res, next) => {
+  try {
+    const cleanedMessages = Array.isArray(req.body?.messages)
+      ? req.body.messages
+          .filter((message) => typeof message?.content === 'string' && message.content.trim())
+          .slice(-10)
+          .map((message) => ({
+            role: message.role === 'assistant' ? 'assistant' : 'user',
+            content: message.content.trim(),
+          }))
+      : [];
+
+    if (cleanedMessages.length === 0) {
+      return res.status(400).json({ error: 'messages is required' });
+    }
+
+    const reply = await chatWithGeorgeWashington(cleanedMessages);
     res.json({ reply });
   } catch (err) {
     next(err);
@@ -305,6 +337,49 @@ router.post('/chat', authenticate, requireRole('teacher'), async (req, res, next
         return res.json({ action: { name: result.name, args: result.args, confirmMessage } });
       }
 
+      if (result.name === 'create_personas_in_every_unit') {
+        const { classroom_name, units } = result.args;
+
+        if (!Array.isArray(units) || units.length === 0) {
+          return res.json({ reply: `I couldn't find any units in ${classroom_name || 'that classroom'} to add personas to yet.` });
+        }
+
+        const unitIds = units.map((unit) => unit.unit_id).filter(Boolean);
+        const { data: existing } = await supabase
+          .from('personas')
+          .select('unit_id, name')
+          .in('unit_id', unitIds);
+
+        const existingNamesByUnit = (existing || []).reduce((acc, persona) => {
+          const key = persona.unit_id;
+          if (!acc[key]) acc[key] = new Set();
+          acc[key].add(persona.name.toLowerCase());
+          return acc;
+        }, {});
+
+        const unitBlocks = units.map((unit, unitIndex) => {
+          const existingNames = existingNamesByUnit[unit.unit_id] || new Set();
+          const duplicates = (unit.personas || [])
+            .map((persona) => persona.name)
+            .filter((name) => existingNames.has(name.toLowerCase()));
+
+          const personaLines = (unit.personas || []).map((persona, personaIndex) => {
+            const dupFlag = duplicates.includes(persona.name) ? ' ⚠ already exists' : '';
+            return `   ${unitIndex + 1}.${personaIndex + 1} ${formatPersonaSummary(persona)}${dupFlag}`;
+          }).join('\n');
+
+          const dupWarning = duplicates.length > 0
+            ? `\n   ⚠ Duplicates in this unit: ${duplicates.join(', ')}`
+            : '';
+
+          return `${unitIndex + 1}. ${unit.unit_name}\n${personaLines}${dupWarning}`;
+        }).join('\n\n');
+
+        const totalPersonas = units.reduce((sum, unit) => sum + ((unit.personas || []).length), 0);
+        const confirmMessage = `Create ${totalPersonas} personas across ${units.length} unit${units.length === 1 ? '' : 's'} in "${classroom_name}"?\n\n${unitBlocks}`;
+        return res.json({ action: { name: result.name, args: result.args, confirmMessage } });
+      }
+
       if (result.name === 'set_unit_visibility') {
         const { unit_names, visible } = result.args;
         const verb = visible ? 'Make visible' : 'Hide';
@@ -439,6 +514,67 @@ router.post('/execute', authenticate, requireRole('teacher'), async (req, res, n
       return res.json({
         success: true,
         message: `${count} persona${count !== 1 ? 's' : ''} created in "${unit_name}".`,
+        personas: created,
+      });
+    }
+
+    if (action.name === 'create_personas_in_every_unit') {
+      const { classroom_id, classroom_name, units } = action.args;
+
+      if (!classroom_id || !Array.isArray(units) || units.length === 0) {
+        return res.status(400).json({ error: 'classroom_id and units are required' });
+      }
+
+      const { data: classroom } = await supabase
+        .from('classrooms')
+        .select('id, name')
+        .eq('id', classroom_id)
+        .eq('teacher_id', req.user.id)
+        .single();
+
+      if (!classroom) return res.status(403).json({ error: 'Classroom not found or access denied' });
+
+      const unitIds = units.map((unit) => unit.unit_id).filter(Boolean);
+      if (unitIds.length !== units.length) {
+        return res.status(400).json({ error: 'Each unit must include a unit_id' });
+      }
+
+      const { data: ownedUnits } = await supabase
+        .from('units')
+        .select('id')
+        .eq('classroom_id', classroom_id)
+        .in('id', unitIds);
+
+      if (!ownedUnits || ownedUnits.length !== unitIds.length) {
+        return res.status(403).json({ error: 'One or more units not found or access denied' });
+      }
+
+      const rowsToInsert = units.flatMap((unit) => (
+        (unit.personas || []).map((persona) => ({
+          unit_id:      unit.unit_id,
+          name:         persona.name,
+          description:  persona.description || null,
+          min_turns:    persona.min_turns || 5,
+          year_start:   persona.year_start ? Number(persona.year_start) : null,
+          year_end:     persona.year_end ? Number(persona.year_end) : null,
+          location:     persona.location || null,
+        }))
+      ));
+
+      if (rowsToInsert.length === 0) {
+        return res.status(400).json({ error: 'At least one persona is required' });
+      }
+
+      const { data: created, error } = await supabase
+        .from('personas')
+        .insert(rowsToInsert)
+        .select();
+
+      if (error) throw error;
+
+      return res.json({
+        success: true,
+        message: `${created.length} personas created across ${units.length} unit${units.length === 1 ? '' : 's'} in "${classroom_name || classroom.name}".`,
         personas: created,
       });
     }

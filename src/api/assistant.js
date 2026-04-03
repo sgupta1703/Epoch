@@ -10,6 +10,11 @@ export async function executeAssistantAction(action) {
   return res.data;
 }
 
+export async function chatWithLandingGeorgeWashington(messages) {
+  const res = await api.post('/api/assistant/landing/george-washington', { messages });
+  return res.data;
+}
+
 export async function evaluateEssayGuideOutline(question, outline) {
   const res = await api.post('/api/assistant/essay-guide/evaluate', { question, outline });
   return res.data;

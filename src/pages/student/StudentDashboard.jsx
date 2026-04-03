@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import StudentOnboarding from '../../components/StudentOnboarding';
 import { getClassrooms, joinClassroom } from '../../api/classrooms';
 import { getStudentDashboard, getStudentDashboardPriorities } from '../../api/student';
 import '../../styles/pages.css';
@@ -336,7 +337,7 @@ function RightPanel({ items, classrooms, joinCode, setJoinCode, onJoin, joining,
       </div>
 
       {/* Join Class */}
-      <div className="db-panel-section">
+      <div className="db-panel-section" data-onboarding="join-class">
         <p className="db-panel-label">Join a Class</p>
         {joinError   && <div className="alert alert-error"   style={{ marginBottom: 8, fontSize: 12 }}>{joinError}</div>}
         {joinSuccess && <div className="alert alert-success" style={{ marginBottom: 8, fontSize: 12 }}>{joinSuccess}</div>}
@@ -370,6 +371,9 @@ export default function StudentDashboard({ user }) {
   const [joinError, setJoinError]   = useState('');
   const [joinSuccess, setJoinSuccess] = useState('');
   const [activeTab, setActiveTab]   = useState('todo'); // 'todo' | 'done'
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => localStorage.getItem('epoch_student_onboarding') === 'needed'
+  );
   const [priorities, setPriorities] = useState(null);
   const [prioritiesLoading, setPrioritiesLoading] = useState(true);
   const [prioritiesFallback, setPrioritiesFallback] = useState(false);
@@ -422,6 +426,7 @@ export default function StudentDashboard({ user }) {
       setClassrooms(c => [...c, norm]);
       setJoinCode('');
       setJoinSuccess(`Joined "${norm.name}"!`);
+      window.dispatchEvent(new CustomEvent('epoch:classrooms-changed'));
       fetchAll();
       setTimeout(() => setJoinSuccess(''), 3000);
     } catch (err) {
@@ -473,6 +478,9 @@ export default function StudentDashboard({ user }) {
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0] || todoItems[0] || null;
   return (
     <>
+      {showOnboarding && (
+        <StudentOnboarding onDone={() => setShowOnboarding(false)} />
+      )}
       <Navbar user={user} />
       <div className="app-shell">
         <Sidebar classrooms={classrooms} role="student" loading={loading} />
@@ -527,7 +535,7 @@ export default function StudentDashboard({ user }) {
                 </div>
 
                 {/* Tabs */}
-                <div className="db-tabs">
+                <div className="db-tabs" data-onboarding="student-feed">
                   <button
                     className={`db-tab${activeTab === 'todo' ? ' db-tab--active' : ''}`}
                     onClick={() => setActiveTab('todo')}
