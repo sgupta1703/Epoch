@@ -30,7 +30,6 @@ export default function AuthCallback({ onLogin }) {
         onLogin(user);
         navigate(user.role === 'teacher' ? '/teacher' : '/student', { replace: true });
       } catch {
-        // Profile doesn't exist yet — pass partial user to setup
         const partialUser = {
           id: session.user.id,
           email: session.user.email,
@@ -45,23 +44,27 @@ export default function AuthCallback({ onLogin }) {
       }
     }
 
-    // Listen for the SIGNED_IN event that fires once the code exchange completes
+    // INITIAL_SESSION fires immediately with the existing session (if any).
+    // SIGNED_IN fires once the PKCE code exchange completes.
+    // We handle both so it works regardless of timing.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session) {
         subscription.unsubscribe();
         processSession(session);
       }
     });
 
-    // Also check immediately in case the session was already resolved
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        subscription.unsubscribe();
-        processSession(session);
+    // Safety timeout — show an error if nothing resolves in 15 seconds
+    const timeout = setTimeout(() => {
+      if (!handled.current) {
+        setError('Sign-in timed out. Please try again.');
       }
-    });
+    }, 15000);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   if (error) {
