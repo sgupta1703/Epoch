@@ -1,4 +1,17 @@
 import api from './axiosInstance';
+import { supabase } from '../lib/supabase';
+
+/**
+ * Trigger Google OAuth — redirects the browser to Google's sign-in page.
+ * On return, /auth/callback handles the session.
+ */
+export async function loginWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  if (error) throw error;
+}
 
 /**
  * Register a new user.

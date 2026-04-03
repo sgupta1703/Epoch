@@ -10,6 +10,8 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import AuthCallback from './pages/auth/AuthCallback';
+import GoogleSetup from './pages/auth/GoogleSetup';
 import Landing from './Landing';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ClassroomView from './pages/teacher/ClassroomView';
@@ -103,6 +105,11 @@ function AppRoutes() {
         </Route>
 
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/callback" element={<AuthCallback onLogin={setUser} />} />
+
+        <Route element={<RequireAuth />}>
+          <Route path="/setup" element={<GoogleSetup />} />
+        </Route>
 
         <Route element={<RequireAuth />}>
           <Route element={<RequireRole role="teacher" />}>

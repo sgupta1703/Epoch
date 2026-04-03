@@ -6,7 +6,10 @@
       "Bash(find /c/Users/HP/Desktop/History -name *.sql -o -name *schema* -o -name *migration*)",
       "Bash(node src/server.js)",
       "Bash(node -e \"require\\(''dotenv''\\).config\\(\\); console.log\\(''GEMINI_API_KEY:'', process.env.GEMINI_API_KEY ? ''loaded \\('' + process.env.GEMINI_API_KEY.slice\\(0,8\\) + ''...\\)'' : ''MISSING''\\)\")",
-      "Bash(grep -r \"Redux\\\\|Zustand\\\\|Recoil\\\\|Jotai\" /c/Users/HP/Desktop/History/src --include=*.jsx --include=*.js)"
+      "Bash(grep -r \"Redux\\\\|Zustand\\\\|Recoil\\\\|Jotai\" /c/Users/HP/Desktop/History/src --include=*.jsx --include=*.js)",
+      "Bash(npm run:*)",
+      "Bash(ls \"c:\\\\Users\\\\HP\\\\Desktop\\\\History\"/*.env)",
+      "Bash(ls \"c:\\\\Users\\\\HP\\\\Desktop\\\\History\"/.env*)"
     ]
   }
 }
