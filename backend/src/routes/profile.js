@@ -325,6 +325,42 @@ router.patch('/teacher/classes/:classroomId', authenticate, requireRole('teacher
   } catch (err) { next(err); }
 });
 
+// POST /api/profile/setup
+// Called after Google OAuth to set display_name + role for new users
+router.post('/setup', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { display_name, role } = req.body;
+
+    if (!display_name?.trim()) {
+      return res.status(400).json({ error: 'display_name is required' });
+    }
+    if (!['teacher', 'student'].includes(role)) {
+      return res.status(400).json({ error: 'role must be "teacher" or "student"' });
+    }
+
+    const { error: upsertErr } = await supabase
+      .from('profiles')
+      .upsert({ id: userId, display_name: display_name.trim(), role });
+
+    if (upsertErr) throw upsertErr;
+
+    await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: { display_name: display_name.trim(), role },
+    });
+
+    const { data: profile, error: fetchErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (fetchErr) throw fetchErr;
+
+    res.json({ user: { ...profile, email: req.user.email || null } });
+  } catch (err) { next(err); }
+});
+
 // PUT /api/profile
 // Update display_name and/or email
 router.put('/', authenticate, async (req, res, next) => {
