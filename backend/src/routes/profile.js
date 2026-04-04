@@ -357,7 +357,7 @@ router.post('/setup', authenticate, async (req, res, next) => {
 
     if (fetchErr) throw fetchErr;
 
-    res.json({ user: { ...profile, email: req.user.email || null } });
+    res.json({ user: { ...profile, email: req.user.email || null, app_metadata: req.user.app_metadata } });
   } catch (err) { next(err); }
 });
 
@@ -417,6 +417,7 @@ router.put('/', authenticate, async (req, res, next) => {
       user: {
         ...profile,
         email: normalizedEmail || req.user.email || null,
+        app_metadata: req.user.app_metadata,
       },
     });
   } catch (err) { next(err); }

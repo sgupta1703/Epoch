@@ -245,14 +245,15 @@ export default function StudentProfile({ user }) {
                     placeholder="Your name"
                   />
                 </div>
-                {!isOAuth && (
                   <div className="sp-field">
                     <label htmlFor="sp-email">Email Address</label>
                     <input
                       id="sp-email"
                       type="email"
                       value={email}
-                      onChange={e => setEmail(e.target.value)}
+                      onChange={isOAuth ? undefined : e => setEmail(e.target.value)}
+                      readOnly={isOAuth}
+                      disabled={isOAuth}
                       placeholder="your@email.com"
                     />
                   </div>
