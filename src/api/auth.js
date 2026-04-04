@@ -16,7 +16,10 @@ export async function loginWithGoogle() {
 export async function loginWithMicrosoft() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'azure',
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+      scopes: 'email profile User.Read',
+    },
   });
   if (error) throw error;
 }
