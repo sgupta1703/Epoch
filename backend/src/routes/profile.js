@@ -1,8 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const supabase = require('../services/supabaseClient');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_, file, cb) => cb(null, file.mimetype.startsWith('image/')),
+});
 
 // GET /api/profile/stats
 // Returns academic stats for the current student
@@ -420,6 +427,36 @@ router.put('/', authenticate, async (req, res, next) => {
         app_metadata: req.user.app_metadata,
       },
     });
+  } catch (err) { next(err); }
+});
+
+// POST /api/profile/avatar
+router.post('/avatar', authenticate, avatarUpload.single('avatar'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+    const userId = req.user.id;
+    const mimeToExt = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+    const ext = mimeToExt[req.file.mimetype] || 'jpg';
+    const path = `${userId}/avatar.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('profile-avatars')
+      .upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage.from('profile-avatars').getPublicUrl(path);
+    const avatarUrl = `${publicUrl}?v=${Date.now()}`;
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', userId);
+
+    if (updateError) throw updateError;
+
+    res.json({ avatar_url: avatarUrl });
   } catch (err) { next(err); }
 });
 

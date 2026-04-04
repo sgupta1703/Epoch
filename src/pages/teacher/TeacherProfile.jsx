@@ -12,6 +12,7 @@ import {
   getTeacherClasses,
   deleteTeacherClass,
   renameTeacherClass,
+  uploadAvatar,
 } from '../../api/profile';
 import '../../styles/pages.css';
 import './TeacherProfile.css';
@@ -87,6 +88,8 @@ export default function TeacherProfile({ user }) {
   const [classes, setClasses] = useState([]);
   const [activeTab, setActiveTab] = useState('info');
 
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   // Personal info
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -143,6 +146,22 @@ export default function TeacherProfile({ user }) {
     setClassrooms(cr.classrooms || []);
     setStats(st);
     setClasses(cl.classes || []);
+  }
+
+  // ── Avatar upload ──
+  async function handleAvatarUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const { avatar_url } = await uploadAvatar(file);
+      setUser({ ...user, avatar_url });
+    } catch {
+      // silently fail
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = '';
+    }
   }
 
   // ── Save profile ──
@@ -404,7 +423,19 @@ export default function TeacherProfile({ user }) {
 
           {/* ── Hero header ── */}
           <div className="tp-hero">
-            <div className="tp-hero-avatar">{user?.display_name?.[0]?.toUpperCase()}</div>
+            <div className="tp-hero-avatar-wrap">
+              {user?.avatar_url
+                ? <img src={user.avatar_url} alt="" className="tp-hero-avatar-img" />
+                : <div className="tp-hero-avatar">{user?.display_name?.[0]?.toUpperCase()}</div>
+              }
+              <label className={`tp-avatar-edit${avatarUploading ? ' tp-avatar-edit--loading' : ''}`} title="Change photo">
+                <input type="file" accept="image/*" hidden onChange={handleAvatarUpload} disabled={avatarUploading} />
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 5.5A1.5 1.5 0 0 1 2.5 4h1.4L5 2h6l1.1 2h1.4A1.5 1.5 0 0 1 15 5.5v7A1.5 1.5 0 0 1 13.5 14h-11A1.5 1.5 0 0 1 1 12.5z"/>
+                  <circle cx="8" cy="9" r="2.5"/>
+                </svg>
+              </label>
+            </div>
             <div className="tp-hero-info">
               <p className="page-eyebrow">Your Profile</p>
               <h1 className="page-title">{user?.display_name}</h1>

@@ -152,12 +152,15 @@ export default function Navbar({ user }) {
             <>
               <span className="navbar-user-name">{user.display_name}</span>
               <button
-                className={`navbar-avatar${menuOpen ? ' navbar-avatar--open' : ''}`}
+                className={`navbar-avatar${menuOpen ? ' navbar-avatar--open' : ''}${user.avatar_url ? ' navbar-avatar--img' : ''}`}
                 onClick={() => setMenuOpen(o => !o)}
                 aria-label="User menu"
                 data-onboarding="profile-btn"
               >
-                {user.display_name?.[0]?.toUpperCase()}
+                {user.avatar_url
+                  ? <img src={user.avatar_url} alt="" className="navbar-avatar-img" />
+                  : user.display_name?.[0]?.toUpperCase()
+                }
               </button>
             </>
           )}
@@ -166,7 +169,10 @@ export default function Navbar({ user }) {
             <div className="navbar-dropdown">
               <div className="navbar-dropdown-header">
                 <div className="navbar-dropdown-avatar">
-                  {user?.display_name?.[0]?.toUpperCase()}
+                  {user?.avatar_url
+                    ? <img src={user.avatar_url} alt="" className="navbar-avatar-img" />
+                    : user?.display_name?.[0]?.toUpperCase()
+                  }
                 </div>
                 <div>
                   <p className="navbar-dropdown-name">{user?.display_name}</p>

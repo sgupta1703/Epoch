@@ -20,6 +20,11 @@
   box-shadow: 0 12px 32px rgba(89,56,30,0.07);
 }
 
+.tp-hero-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .tp-hero-avatar {
   width: 80px;
   height: 80px;
@@ -32,9 +37,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   box-shadow: 0 6px 20px rgba(30,77,140,0.28);
 }
+
+.tp-hero-avatar-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 6px 20px rgba(30,77,140,0.28);
+}
+
+.tp-avatar-edit {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: #fff;
+}
+.tp-hero-avatar-wrap:hover .tp-avatar-edit { opacity: 1; }
+.tp-avatar-edit--loading { opacity: 1; cursor: wait; }
 
 .tp-hero-info { min-width: 0; }
 

@@ -15,6 +15,13 @@ export async function updateProfile({ display_name, email }) {
   return res.data;
 }
 
+export async function uploadAvatar(file) {
+  const formData = new FormData();
+  formData.append('avatar', file);
+  const res = await api.post('/api/profile/avatar', formData);
+  return res.data;
+}
+
 export async function changePassword({ current_password, new_password }) {
   const res = await api.put('/api/profile/password', { current_password, new_password });
   return res.data;
