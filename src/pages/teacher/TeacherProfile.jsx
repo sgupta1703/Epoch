@@ -305,6 +305,77 @@ export default function TeacherProfile({ user }) {
     return new Date(current.created_at) > new Date(best.created_at) ? current : best;
   }, null);
 
+  const securityCard = (
+    <div className="tp-card">
+      <div className="tp-card-head">
+        <span className="tp-card-kicker">Security</span>
+        <h2 className="tp-card-title">{isOAuth ? 'Connected Account' : 'Change Password'}</h2>
+        <p className="tp-card-desc">
+          {isOAuth
+            ? `Your identity is verified and secured by ${providerName}.`
+            : "Choose a strong password you haven't used before."}
+        </p>
+      </div>
+      {isOAuth ? (
+        <>
+          <div className="tp-connected-account">
+            <div className="tp-connected-provider">
+              {provider === 'google' ? <GoogleIcon /> : <MicrosoftIcon />}
+              <div>
+                <p className="tp-connected-name">{providerName}</p>
+                <p className="tp-connected-email">{user?.email}</p>
+              </div>
+            </div>
+            <div className="tp-connected-badge">Connected</div>
+          </div>
+          <p className="tp-connected-note">
+            Sign-in is handled by {providerName}. Your session is protected by your {providerName} account&apos;s security settings, including two-factor authentication if you have it enabled.
+          </p>
+        </>
+      ) : (
+        <>
+          {pwMsg && <div className={`tp-toast tp-toast--${pwMsg.type}`}>{pwMsg.text}</div>}
+          <form onSubmit={handleChangePassword} className="tp-form">
+            <div className="tp-field">
+              <label>Current Password</label>
+              <div className="tp-pw-wrap">
+                <input type={showCurrentPw ? 'text' : 'password'} value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Enter current password" />
+                <button type="button" className="tp-pw-toggle" onClick={() => setShowCurrentPw(v => !v)}>{showCurrentPw ? 'Hide' : 'Show'}</button>
+              </div>
+            </div>
+            <div className="tp-field">
+              <label>New Password</label>
+              <div className="tp-pw-wrap">
+                <input type={showNewPw ? 'text' : 'password'} value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 6 characters" />
+                <button type="button" className="tp-pw-toggle" onClick={() => setShowNewPw(v => !v)}>{showNewPw ? 'Hide' : 'Show'}</button>
+              </div>
+              {newPw.length > 0 && (
+                <div className="tp-pw-strength">
+                  <div className={`tp-pw-bar tp-pw-bar--${pwStrength(newPw)}`} />
+                  <span className="tp-pw-label">
+                    {pwStrength(newPw) === 'weak' ? 'Too short' : pwStrength(newPw) === 'ok' ? 'Acceptable' : 'Strong'}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="tp-field">
+              <label>Confirm New Password</label>
+              <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter new password" />
+              {confirmPw && newPw && confirmPw !== newPw && (
+                <p className="tp-field-error">Passwords do not match</p>
+              )}
+            </div>
+            <div className="tp-form-actions">
+              <button type="submit" className="btn btn-primary" disabled={pwSaving}>
+                {pwSaving ? 'Updating…' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        </>
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
       <>
@@ -360,7 +431,6 @@ export default function TeacherProfile({ user }) {
           <div className="tp-tabs">
             {[
               { key: 'info',     label: 'Personal Info' },
-              { key: 'password', label: 'Password' },
               { key: 'classes',  label: `Classes (${classes.length})` },
             ].map(t => (
               <button
@@ -378,6 +448,7 @@ export default function TeacherProfile({ user }) {
             <div className="tp-section">
               <div className="tp-section-grid">
 
+                <div className="tp-card-stack">
                 <div className="tp-card">
                   <div className="tp-card-head">
                     <span className="tp-card-kicker">Account</span>
@@ -407,6 +478,8 @@ export default function TeacherProfile({ user }) {
                       </button>
                     </div>
                   </form>
+                </div>
+                {securityCard}
                 </div>
 
                 {/* Account summary card */}
