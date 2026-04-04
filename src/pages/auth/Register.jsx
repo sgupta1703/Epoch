@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { register, login, loginWithGoogle } from '../../api/auth';
+import { register, login, loginWithGoogle, loginWithMicrosoft } from '../../api/auth';
 import './Auth.css';
+
+function MicrosoftIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <rect x="1" y="1" width="7.5" height="7.5" fill="#f25022"/>
+      <rect x="9.5" y="1" width="7.5" height="7.5" fill="#7fba00"/>
+      <rect x="1" y="9.5" width="7.5" height="7.5" fill="#00a4ef"/>
+      <rect x="9.5" y="9.5" width="7.5" height="7.5" fill="#ffb900"/>
+    </svg>
+  );
+}
 
 function GoogleIcon() {
   return (
@@ -151,7 +162,12 @@ export default function Register({ onLogin }) {
 
           <div className="auth-divider"><span>or</span></div>
 
-          <button className="auth-google-btn" type="button" onClick={loginWithGoogle}>
+          <button className="auth-google-btn" type="button" onClick={loginWithMicrosoft}>
+            <MicrosoftIcon />
+            Continue with Microsoft
+          </button>
+
+          <button className="auth-google-btn" type="button" onClick={loginWithGoogle} style={{ marginTop: 10 }}>
             <GoogleIcon />
             Continue with Google
           </button>

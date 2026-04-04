@@ -10,6 +10,14 @@ export default function AuthCallback({ onLogin }) {
   const handled = useRef(false);
 
   useEffect(() => {
+    // Check for an error Supabase embedded in the URL before doing anything else
+    const params = new URLSearchParams(window.location.search);
+    const urlError = params.get('error_description') || params.get('error');
+    if (urlError) {
+      setError(decodeURIComponent(urlError.replace(/\+/g, ' ')));
+      return;
+    }
+
     async function processSession(session) {
       if (handled.current) return;
       handled.current = true;
