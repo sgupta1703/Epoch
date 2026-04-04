@@ -1216,7 +1216,6 @@ export default function Landing() {
             <div className="pc-compose-shell">
               <form className={`pc-compose${demoReady ? ' is-ready' : ''}`} onSubmit={handleDemoSubmit}>
                 <div className="pc-compose-field">
-                  <label className="pc-compose-label" htmlFor="landing-persona-input">Ask George Washington</label>
                   <textarea
                     id="landing-persona-input"
                     className="pc-compose-input"
