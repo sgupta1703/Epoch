@@ -237,6 +237,10 @@ export default function TeacherProfile({ user }) {
     return 'strong';
   }
 
+  const provider = user?.app_metadata?.provider;
+  const isOAuth = provider === 'google' || provider === 'azure';
+  const providerName = provider === 'google' ? 'Google' : provider === 'azure' ? 'Microsoft' : null;
+
   const memberDate = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : '—';
@@ -358,16 +362,23 @@ export default function TeacherProfile({ user }) {
                     <h2 className="tp-card-title">Personal Information</h2>
                     <p className="tp-card-desc">Update your name or email. Changes appear across the platform.</p>
                   </div>
+                  {isOAuth && (
+                    <div className="tp-oauth-notice">
+                      Signed in with {providerName}. Your email is managed by {providerName} and cannot be changed here.
+                    </div>
+                  )}
                   {profileMsg && <div className={`tp-toast tp-toast--${profileMsg.type}`}>{profileMsg.text}</div>}
                   <form onSubmit={handleSaveProfile} className="tp-form">
                     <div className="tp-field">
                       <label>Display Name</label>
                       <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Your name" />
                     </div>
-                    <div className="tp-field">
-                      <label>Email Address</label>
-                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@school.edu" />
-                    </div>
+                    {!isOAuth && (
+                      <div className="tp-field">
+                        <label>Email Address</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@school.edu" />
+                      </div>
+                    )}
                     <div className="tp-form-actions">
                       <button type="submit" className="btn btn-primary" disabled={profileSaving}>
                         {profileSaving ? 'Saving…' : 'Save Changes'}
@@ -452,45 +463,53 @@ export default function TeacherProfile({ user }) {
                   <div className="tp-card-head">
                     <span className="tp-card-kicker">Security</span>
                     <h2 className="tp-card-title">Change Password</h2>
-                    <p className="tp-card-desc">Choose a strong password you haven't used before.</p>
+                    {!isOAuth && <p className="tp-card-desc">Choose a strong password you haven't used before.</p>}
                   </div>
-                  {pwMsg && <div className={`tp-toast tp-toast--${pwMsg.type}`}>{pwMsg.text}</div>}
-                  <form onSubmit={handleChangePassword} className="tp-form">
-                    <div className="tp-field">
-                      <label>Current Password</label>
-                      <div className="tp-pw-wrap">
-                        <input type={showCurrentPw ? 'text' : 'password'} value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Enter current password" />
-                        <button type="button" className="tp-pw-toggle" onClick={() => setShowCurrentPw(v => !v)}>{showCurrentPw ? 'Hide' : 'Show'}</button>
-                      </div>
+                  {isOAuth ? (
+                    <div className="tp-oauth-notice">
+                      Your password is managed by {providerName}. To change it, visit your {providerName} account settings.
                     </div>
-                    <div className="tp-field">
-                      <label>New Password</label>
-                      <div className="tp-pw-wrap">
-                        <input type={showNewPw ? 'text' : 'password'} value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 6 characters" />
-                        <button type="button" className="tp-pw-toggle" onClick={() => setShowNewPw(v => !v)}>{showNewPw ? 'Hide' : 'Show'}</button>
-                      </div>
-                      {newPw.length > 0 && (
-                        <div className="tp-pw-strength">
-                          <div className={`tp-pw-bar tp-pw-bar--${pwStrength(newPw)}`} />
-                          <span className="tp-pw-label">
-                            {pwStrength(newPw) === 'weak' ? 'Too short' : pwStrength(newPw) === 'ok' ? 'Acceptable' : 'Strong'}
-                          </span>
+                  ) : (
+                    <>
+                      {pwMsg && <div className={`tp-toast tp-toast--${pwMsg.type}`}>{pwMsg.text}</div>}
+                      <form onSubmit={handleChangePassword} className="tp-form">
+                        <div className="tp-field">
+                          <label>Current Password</label>
+                          <div className="tp-pw-wrap">
+                            <input type={showCurrentPw ? 'text' : 'password'} value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Enter current password" />
+                            <button type="button" className="tp-pw-toggle" onClick={() => setShowCurrentPw(v => !v)}>{showCurrentPw ? 'Hide' : 'Show'}</button>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    <div className="tp-field">
-                      <label>Confirm New Password</label>
-                      <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter new password" />
-                      {confirmPw && newPw && confirmPw !== newPw && (
-                        <p className="tp-field-error">Passwords do not match</p>
-                      )}
-                    </div>
-                    <div className="tp-form-actions">
-                      <button type="submit" className="btn btn-primary" disabled={pwSaving}>
-                        {pwSaving ? 'Updating…' : 'Update Password'}
-                      </button>
-                    </div>
-                  </form>
+                        <div className="tp-field">
+                          <label>New Password</label>
+                          <div className="tp-pw-wrap">
+                            <input type={showNewPw ? 'text' : 'password'} value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 6 characters" />
+                            <button type="button" className="tp-pw-toggle" onClick={() => setShowNewPw(v => !v)}>{showNewPw ? 'Hide' : 'Show'}</button>
+                          </div>
+                          {newPw.length > 0 && (
+                            <div className="tp-pw-strength">
+                              <div className={`tp-pw-bar tp-pw-bar--${pwStrength(newPw)}`} />
+                              <span className="tp-pw-label">
+                                {pwStrength(newPw) === 'weak' ? 'Too short' : pwStrength(newPw) === 'ok' ? 'Acceptable' : 'Strong'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="tp-field">
+                          <label>Confirm New Password</label>
+                          <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter new password" />
+                          {confirmPw && newPw && confirmPw !== newPw && (
+                            <p className="tp-field-error">Passwords do not match</p>
+                          )}
+                        </div>
+                        <div className="tp-form-actions">
+                          <button type="submit" className="btn btn-primary" disabled={pwSaving}>
+                            {pwSaving ? 'Updating…' : 'Update Password'}
+                          </button>
+                        </div>
+                      </form>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

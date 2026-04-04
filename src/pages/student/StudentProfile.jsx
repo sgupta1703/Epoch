@@ -136,6 +136,10 @@ export default function StudentProfile({ user }) {
     }
   }
 
+  const provider = user?.app_metadata?.provider;
+  const isOAuth = provider === 'google' || provider === 'azure';
+  const providerName = provider === 'google' ? 'Google' : provider === 'azure' ? 'Microsoft' : null;
+
   const memberDate = stats?.member_since
     ? new Date(stats.member_since).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : '—';
@@ -203,6 +207,11 @@ export default function StudentProfile({ user }) {
                 </div>
               )}
 
+              {isOAuth && (
+                <div className="sp-oauth-notice">
+                  Signed in with {providerName}. Your email is managed by {providerName} and cannot be changed here.
+                </div>
+              )}
               <form onSubmit={handleSaveProfile} className="sp-form">
                 <div className="sp-field">
                   <label htmlFor="sp-name">Display Name</label>
@@ -214,16 +223,18 @@ export default function StudentProfile({ user }) {
                     placeholder="Your name"
                   />
                 </div>
-                <div className="sp-field">
-                  <label htmlFor="sp-email">Email Address</label>
-                  <input
-                    id="sp-email"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                  />
-                </div>
+                {!isOAuth && (
+                  <div className="sp-field">
+                    <label htmlFor="sp-email">Email Address</label>
+                    <input
+                      id="sp-email"
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="your@email.com"
+                    />
+                  </div>
+                )}
                 <div className="sp-form-actions">
                   <button type="submit" className="btn btn-primary" disabled={profileSaving}>
                     {profileSaving ? 'Saving...' : 'Save Changes'}
@@ -237,83 +248,90 @@ export default function StudentProfile({ user }) {
               <div className="sp-card-head">
                 <span className="sp-card-kicker">Security</span>
                 <h2 className="sp-card-title">Change Password</h2>
-                <p className="sp-card-desc">Use a strong password with at least 6 characters. You'll need your current password to confirm.</p>
+                {!isOAuth && <p className="sp-card-desc">Use a strong password with at least 6 characters. You'll need your current password to confirm.</p>}
               </div>
 
-              {pwMsg && (
-                <div className={`sp-toast sp-toast--${pwMsg.type}`}>
-                  {pwMsg.text}
+              {isOAuth ? (
+                <div className="sp-oauth-notice">
+                  Your password is managed by {providerName}. To change it, visit your {providerName} account settings.
                 </div>
-              )}
-
-              <form onSubmit={handleChangePassword} className="sp-form">
-                <div className="sp-field">
-                  <label htmlFor="sp-cur-pw">Current Password</label>
-                  <div className="sp-pw-wrap">
-                    <input
-                      id="sp-cur-pw"
-                      type={showCurrentPw ? 'text' : 'password'}
-                      value={currentPw}
-                      onChange={e => setCurrentPw(e.target.value)}
-                      placeholder="Enter current password"
-                    />
-                    <button
-                      type="button"
-                      className="sp-pw-toggle"
-                      onClick={() => setShowCurrentPw(v => !v)}
-                      aria-label={showCurrentPw ? 'Hide password' : 'Show password'}
-                    >
-                      {showCurrentPw ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                </div>
-                <div className="sp-field">
-                  <label htmlFor="sp-new-pw">New Password</label>
-                  <div className="sp-pw-wrap">
-                    <input
-                      id="sp-new-pw"
-                      type={showNewPw ? 'text' : 'password'}
-                      value={newPw}
-                      onChange={e => setNewPw(e.target.value)}
-                      placeholder="At least 6 characters"
-                    />
-                    <button
-                      type="button"
-                      className="sp-pw-toggle"
-                      onClick={() => setShowNewPw(v => !v)}
-                      aria-label={showNewPw ? 'Hide password' : 'Show password'}
-                    >
-                      {showNewPw ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                  {newPw.length > 0 && (
-                    <div className="sp-pw-strength">
-                      <div className={`sp-pw-bar ${newPw.length >= 10 ? 'sp-pw-bar--strong' : newPw.length >= 6 ? 'sp-pw-bar--ok' : 'sp-pw-bar--weak'}`} />
-                      <span className="sp-pw-strength-label">
-                        {newPw.length < 6 ? 'Too short' : newPw.length < 10 ? 'Acceptable' : 'Strong'}
-                      </span>
+              ) : (
+                <>
+                  {pwMsg && (
+                    <div className={`sp-toast sp-toast--${pwMsg.type}`}>
+                      {pwMsg.text}
                     </div>
                   )}
-                </div>
-                <div className="sp-field">
-                  <label htmlFor="sp-confirm-pw">Confirm New Password</label>
-                  <input
-                    id="sp-confirm-pw"
-                    type="password"
-                    value={confirmPw}
-                    onChange={e => setConfirmPw(e.target.value)}
-                    placeholder="Re-enter new password"
-                  />
-                  {confirmPw && newPw && confirmPw !== newPw && (
-                    <p className="sp-field-error">Passwords do not match</p>
-                  )}
-                </div>
-                <div className="sp-form-actions">
-                  <button type="submit" className="btn btn-primary" disabled={pwSaving}>
-                    {pwSaving ? 'Updating...' : 'Update Password'}
-                  </button>
-                </div>
-              </form>
+                  <form onSubmit={handleChangePassword} className="sp-form">
+                    <div className="sp-field">
+                      <label htmlFor="sp-cur-pw">Current Password</label>
+                      <div className="sp-pw-wrap">
+                        <input
+                          id="sp-cur-pw"
+                          type={showCurrentPw ? 'text' : 'password'}
+                          value={currentPw}
+                          onChange={e => setCurrentPw(e.target.value)}
+                          placeholder="Enter current password"
+                        />
+                        <button
+                          type="button"
+                          className="sp-pw-toggle"
+                          onClick={() => setShowCurrentPw(v => !v)}
+                          aria-label={showCurrentPw ? 'Hide password' : 'Show password'}
+                        >
+                          {showCurrentPw ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="sp-field">
+                      <label htmlFor="sp-new-pw">New Password</label>
+                      <div className="sp-pw-wrap">
+                        <input
+                          id="sp-new-pw"
+                          type={showNewPw ? 'text' : 'password'}
+                          value={newPw}
+                          onChange={e => setNewPw(e.target.value)}
+                          placeholder="At least 6 characters"
+                        />
+                        <button
+                          type="button"
+                          className="sp-pw-toggle"
+                          onClick={() => setShowNewPw(v => !v)}
+                          aria-label={showNewPw ? 'Hide password' : 'Show password'}
+                        >
+                          {showNewPw ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                      {newPw.length > 0 && (
+                        <div className="sp-pw-strength">
+                          <div className={`sp-pw-bar ${newPw.length >= 10 ? 'sp-pw-bar--strong' : newPw.length >= 6 ? 'sp-pw-bar--ok' : 'sp-pw-bar--weak'}`} />
+                          <span className="sp-pw-strength-label">
+                            {newPw.length < 6 ? 'Too short' : newPw.length < 10 ? 'Acceptable' : 'Strong'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="sp-field">
+                      <label htmlFor="sp-confirm-pw">Confirm New Password</label>
+                      <input
+                        id="sp-confirm-pw"
+                        type="password"
+                        value={confirmPw}
+                        onChange={e => setConfirmPw(e.target.value)}
+                        placeholder="Re-enter new password"
+                      />
+                      {confirmPw && newPw && confirmPw !== newPw && (
+                        <p className="sp-field-error">Passwords do not match</p>
+                      )}
+                    </div>
+                    <div className="sp-form-actions">
+                      <button type="submit" className="btn btn-primary" disabled={pwSaving}>
+                        {pwSaving ? 'Updating...' : 'Update Password'}
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
             </section>
           </div>
 
