@@ -709,3 +709,16 @@
   .tp-classes-header { flex-direction: column; }
   .tp-action-grid { grid-template-columns: 1fr; }
 }
+
+
+.tp-oauth-notice {
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--rust);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
