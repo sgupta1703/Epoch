@@ -161,6 +161,17 @@ body {
 
 .navbar-avatar:hover { background: var(--rust-dark); }
 .navbar-avatar--open { border-color: var(--rust); background: var(--rust-dark); }
+.navbar-avatar--img { background: transparent; padding: 0; overflow: hidden; }
+.navbar-avatar--img:hover { background: transparent; }
+.navbar-avatar--img.navbar-avatar--open { background: transparent; border-color: var(--rust); }
+
+.navbar-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
 
 /* ── Dropdown ── */
 .navbar-dropdown {

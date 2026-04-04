@@ -11,6 +11,7 @@ import {
   updateProfile,
   changePassword,
   leaveClassroom,
+  uploadAvatar,
 } from '../../api/profile';
 import '../../styles/pages.css';
 import './StudentProfile.css';
@@ -60,6 +61,8 @@ export default function StudentProfile({ user }) {
   const [stats, setStats] = useState(null);
   const [enrolledClasses, setEnrolledClasses] = useState([]);
 
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   // Personal info form
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -93,6 +96,22 @@ export default function StudentProfile({ user }) {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // ── Avatar upload ──
+  async function handleAvatarUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const { avatar_url } = await uploadAvatar(file);
+      setUser({ ...user, avatar_url });
+    } catch {
+      // silently fail
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = '';
+    }
+  }
 
   // ── Save personal info ──
   async function handleSaveProfile(e) {
@@ -189,8 +208,18 @@ export default function StudentProfile({ user }) {
 
           {/* ── Header ── */}
           <div className="sp-header">
-            <div className="sp-avatar-lg">
-              {user?.display_name?.[0]?.toUpperCase()}
+            <div className="sp-avatar-wrap">
+              {user?.avatar_url
+                ? <img src={user.avatar_url} alt="" className="sp-avatar-img" />
+                : <div className="sp-avatar-lg">{user?.display_name?.[0]?.toUpperCase()}</div>
+              }
+              <label className={`sp-avatar-edit${avatarUploading ? ' sp-avatar-edit--loading' : ''}`} title="Change photo">
+                <input type="file" accept="image/*" hidden onChange={handleAvatarUpload} disabled={avatarUploading} />
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 5.5A1.5 1.5 0 0 1 2.5 4h1.4L5 2h6l1.1 2h1.4A1.5 1.5 0 0 1 15 5.5v7A1.5 1.5 0 0 1 13.5 14h-11A1.5 1.5 0 0 1 1 12.5z"/>
+                  <circle cx="8" cy="9" r="2.5"/>
+                </svg>
+              </label>
             </div>
             <div className="sp-header-info">
               <p className="page-eyebrow">Your Profile</p>
