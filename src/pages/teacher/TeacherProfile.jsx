@@ -466,12 +466,10 @@ export default function TeacherProfile({ user }) {
                       <label>Display Name</label>
                       <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Your name" />
                     </div>
-                    {!isOAuth && (
-                      <div className="tp-field">
-                        <label>Email Address</label>
-                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@school.edu" />
-                      </div>
-                    )}
+                    <div className="tp-field">
+                      <label>Email Address</label>
+                      <input type="email" value={email} onChange={isOAuth ? undefined : e => setEmail(e.target.value)} readOnly={isOAuth} disabled={isOAuth} placeholder="you@school.edu" />
+                    </div>
                     <div className="tp-form-actions">
                       <button type="submit" className="btn btn-primary" disabled={profileSaving}>
                         {profileSaving ? 'Saving…' : 'Save Changes'}
