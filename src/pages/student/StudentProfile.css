@@ -464,3 +464,50 @@
   margin-bottom: 20px;
   line-height: 1.5;
 }
+
+.sp-connected-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.sp-connected-provider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sp-connected-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.sp-connected-email {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sp-connected-badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1e7a3a;
+  background: #eaf6ea;
+  border: 1px solid #b6e8c4;
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+.sp-connected-note {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
