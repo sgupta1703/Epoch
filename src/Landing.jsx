@@ -830,7 +830,7 @@ export default function Landing() {
         .pc-compose.is-ready { opacity: 1; transform: translateY(0); pointer-events: auto; }
         .pc-compose:focus-within { box-shadow: 0 18px 34px rgba(184,76,43,.16); border-color: rgba(184,76,43,.26); }
         .pc-compose-field { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-        .pc-compose-label { font-family: var(--ls); font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--li5); }
+        .pc-compose-label { font-family: var(--ls); font-size: 10px; font-weight: 550; letter-spacing: .12em; text-transform: uppercase; color: var(--li5); }
         .pc-compose-input { width: 100%; resize: none; border: none; outline: none; background: transparent; font-family: var(--ls); font-size: 13px; font-weight: 300; line-height: 1.6; color: var(--li); min-height: 24px; max-height: 112px; }
         .pc-compose-input::placeholder { color: rgba(15,14,13,.42); }
         .pc-compose-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 72px; padding: 10px 14px; border: none; border-radius: 10px; background: var(--li); color: var(--lp); font-family: var(--ls); font-size: 12px; font-weight: 500; cursor: pointer; transition: transform .2s ease, background .2s ease, opacity .2s ease; }
@@ -1216,6 +1216,7 @@ export default function Landing() {
             <div className="pc-compose-shell">
               <form className={`pc-compose${demoReady ? ' is-ready' : ''}`} onSubmit={handleDemoSubmit}>
                 <div className="pc-compose-field">
+                  <label className="pc-compose-label" htmlFor="landing-persona-input">Ask George Washington</label>
                   <textarea
                     id="landing-persona-input"
                     className="pc-compose-input"
