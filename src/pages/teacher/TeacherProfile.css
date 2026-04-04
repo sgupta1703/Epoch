@@ -144,6 +144,12 @@
   align-items: start;
 }
 
+.tp-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
 .tp-section-grid--narrow {
   grid-template-columns: 560px;
 }
