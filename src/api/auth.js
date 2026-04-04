@@ -13,6 +13,14 @@ export async function loginWithGoogle() {
   if (error) throw error;
 }
 
+export async function loginWithMicrosoft() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'azure',
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  if (error) throw error;
+}
+
 /**
  * Register a new user.
  * @param {{ email: string, password: string, display_name: string, role: 'teacher'|'student' }} data
