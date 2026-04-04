@@ -18,7 +18,9 @@ export async function updateProfile({ display_name, email }) {
 export async function uploadAvatar(file) {
   const formData = new FormData();
   formData.append('avatar', file);
-  const res = await api.post('/api/profile/avatar', formData);
+  const res = await api.post('/api/profile/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return res.data;
 }
 
