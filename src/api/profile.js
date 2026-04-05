@@ -18,10 +18,15 @@ export async function updateProfile({ display_name, email }) {
 export async function uploadAvatar(file) {
   const formData = new FormData();
   formData.append('avatar', file);
-  const res = await api.post('/api/profile/avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  const token = localStorage.getItem('access_token');
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  const res = await fetch(`${baseUrl}/api/profile/avatar`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
   });
-  return res.data;
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Upload failed');
+  return res.json();
 }
 
 export async function changePassword({ current_password, new_password }) {
