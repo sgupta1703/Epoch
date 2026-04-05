@@ -71,3 +71,8 @@ export async function analyzeClassPerformance(classroomId) {
   const res = await api.post(`/api/classrooms/${classroomId}/analyze`);
   return res.data;
 }
+
+export async function getStudentScores(classroomId) {
+  const res = await api.get(`/api/student/classrooms/${classroomId}/scores`);
+  return res.data;
+}
