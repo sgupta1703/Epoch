@@ -59,16 +59,20 @@ router.get('/:classroomId/units', authenticate, async (req, res, next) => {
 
     if (error) throw error;
 
-    // Annotate each unit with whether it has any content (notes or personas)
+    // Annotate each unit with whether it has any content (notes, personas, assignments, or quizzes)
     const unitIds = data.map(u => u.id);
     let hasContentSet = new Set();
     if (unitIds.length > 0) {
-      const [notesRes, personasRes] = await Promise.all([
+      const [notesRes, personasRes, assignmentsRes, quizzesRes] = await Promise.all([
         supabase.from('notes').select('unit_id').in('unit_id', unitIds).not('content', 'is', null),
         supabase.from('personas').select('unit_id').in('unit_id', unitIds),
+        supabase.from('assignments').select('unit_id').in('unit_id', unitIds),
+        supabase.from('quizzes').select('unit_id').in('unit_id', unitIds),
       ]);
       (notesRes.data || []).forEach(r => hasContentSet.add(r.unit_id));
       (personasRes.data || []).forEach(r => hasContentSet.add(r.unit_id));
+      (assignmentsRes.data || []).forEach(r => hasContentSet.add(r.unit_id));
+      (quizzesRes.data || []).forEach(r => hasContentSet.add(r.unit_id));
     }
 
     const units = data.map(unit => ({ ...unit, has_content: hasContentSet.has(unit.id) }));

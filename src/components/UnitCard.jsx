@@ -96,7 +96,7 @@ export default function UnitCard({ unit, role, onToggleVis, onDelete, completion
             </button>
           </>
         ) : unit.has_content === false ? (
-          <span className="unit-card-empty-label">Nothing here yet</span>
+          <button className="unit-card-btn unit-card-btn--ghost" onClick={() => navigate(basePath)}>Nothing here yet</button>
         ) : (
           <button className="unit-card-btn unit-card-btn--primary" onClick={() => navigate(basePath)}>
             Open →
