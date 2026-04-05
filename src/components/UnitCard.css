@@ -86,6 +86,12 @@
   border-color: #f4c8ab;
 }
 
+.unit-card-due--soon {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
 /* Title */
 .unit-card-title {
   font-family: var(--font-display);
@@ -160,6 +166,14 @@
   font-size: 11px;
   font-weight: 500;
   color: var(--muted);
+}
+
+/* Empty label */
+.unit-card-empty-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  font-style: italic;
 }
 
 /* Footer */

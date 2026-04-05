@@ -242,6 +242,60 @@ router.get('/dashboard/priorities', authenticate, requireRole('student'), async 
   }
 });
 
+// GET /api/student/classrooms/:classroomId/scores
+// Returns the student's own graded submissions for a specific classroom, sorted by date
+router.get('/classrooms/:classroomId/scores', authenticate, requireRole('student'), async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { classroomId } = req.params;
+
+    // Verify enrolled
+    const { data: enrollment } = await supabase
+      .from('classroom_students')
+      .select('classroom_id')
+      .eq('classroom_id', classroomId)
+      .eq('student_id', studentId)
+      .single();
+    if (!enrollment) return res.status(403).json({ error: 'Access denied' });
+
+    // Get all visible units in this classroom
+    const { data: units } = await supabase
+      .from('units')
+      .select('id')
+      .eq('classroom_id', classroomId)
+      .eq('is_visible', true);
+
+    const unitIds = (units || []).map(u => u.id);
+    if (unitIds.length === 0) return res.json({ scores: [] });
+
+    // Get quizzes and assignments for those units
+    const [{ data: quizzes }, { data: assignments }] = await Promise.all([
+      supabase.from('quizzes').select('id').in('unit_id', unitIds),
+      supabase.from('assignments').select('id').in('unit_id', unitIds),
+    ]);
+
+    const quizIds = (quizzes || []).map(q => q.id);
+    const assignmentIds = (assignments || []).map(a => a.id);
+
+    // Get graded submissions
+    const [{ data: qSubs }, { data: aSubs }] = await Promise.all([
+      quizIds.length
+        ? supabase.from('quiz_submissions').select('score, submitted_at').eq('student_id', studentId).in('quiz_id', quizIds).not('score', 'is', null)
+        : Promise.resolve({ data: [] }),
+      assignmentIds.length
+        ? supabase.from('assignment_submissions').select('score, submitted_at').eq('student_id', studentId).in('assignment_id', assignmentIds).not('score', 'is', null)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const scores = [...(qSubs || []), ...(aSubs || [])]
+      .sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at));
+
+    res.json({ scores });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/student/dashboard
 // Returns all assignments + quizzes across enrolled classrooms with submission status
 router.get('/dashboard', authenticate, requireRole('student'), async (req, res, next) => {

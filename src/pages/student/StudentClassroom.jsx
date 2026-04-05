@@ -4,7 +4,7 @@ import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import UnitCard from '../../components/UnitCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { getClassrooms, getClassroom, getStudentPerformance } from '../../api/classrooms';
+import { getClassrooms, getClassroom, getStudentPerformance, getStudentScores } from '../../api/classrooms';
 import { getUnits } from '../../api/units';
 import '../../styles/pages.css';
 import './Student.css';
@@ -21,6 +21,7 @@ export default function StudentClassroom({ user }) {
   const [classroom, setClassroom] = useState(null);
   const [units, setUnits] = useState([]);
   const [performanceUnits, setPerformanceUnits] = useState([]);
+  const [scoreTrend, setScoreTrend] = useState(null); // 'up' | 'down' | 'flat' | null
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -36,16 +37,32 @@ export default function StudentClassroom({ user }) {
         ? getStudentPerformance(classroomId, user.id).catch(() => ({ performance: { units: [] } }))
         : Promise.resolve({ performance: { units: [] } });
 
-      const [{ classrooms }, { classroom }, { units }, performanceResponse] = await Promise.all([
+      const scoresRequest = getStudentScores(classroomId).catch(() => ({ scores: [] }));
+
+      const [{ classrooms }, { classroom }, { units }, performanceResponse, scoresResponse] = await Promise.all([
         getClassrooms(),
         getClassroom(classroomId),
         getUnits(classroomId),
         performanceRequest,
+        scoresRequest,
       ]);
       setClassrooms(classrooms);
       setClassroom(classroom);
       setUnits(units);
       setPerformanceUnits(performanceResponse?.performance?.units || []);
+
+      const scores = (scoresResponse?.scores || []).map(s => s.score);
+      if (scores.length >= 2) {
+        const mid = Math.floor(scores.length / 2);
+        const earlier = scores.slice(0, mid);
+        const recent = scores.slice(mid);
+        const avgEarlier = earlier.reduce((a, b) => a + b, 0) / earlier.length;
+        const avgRecent = recent.reduce((a, b) => a + b, 0) / recent.length;
+        const diff = avgRecent - avgEarlier;
+        setScoreTrend(diff > 3 ? 'up' : diff < -3 ? 'down' : 'flat');
+      } else {
+        setScoreTrend(null);
+      }
     } catch {
       setError('Failed to load classroom.');
     } finally {
@@ -136,8 +153,15 @@ export default function StudentClassroom({ user }) {
             </div>
             <div className="classroom-summary-card classroom-summary-card--success">
               <span className="classroom-summary-label">Avg Score</span>
-              <strong className="classroom-summary-value">{classroomAverage !== null ? `${classroomAverage}%` : '—'}</strong>
-              <span className="classroom-summary-copy">graded work in this class</span>
+              <strong className="classroom-summary-value">
+                {classroomAverage !== null ? `${classroomAverage}%` : '—'}
+                {scoreTrend === 'up' && <span className="score-trend score-trend--up"> ↑</span>}
+                {scoreTrend === 'down' && <span className="score-trend score-trend--down"> ↓</span>}
+                {scoreTrend === 'flat' && <span className="score-trend score-trend--flat"> →</span>}
+              </strong>
+              <span className="classroom-summary-copy">
+                {scoreTrend === 'up' ? 'improving recently' : scoreTrend === 'down' ? 'declining recently' : 'graded work in this class'}
+              </span>
             </div>
           </div>
 

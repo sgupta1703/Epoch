@@ -15,7 +15,10 @@ export default function UnitCard({ unit, role, onToggleVis, onDelete, completion
   }
 
   const dueDate = formatDate(unit.due_date);
-  const isPastDue = unit.due_date && new Date(unit.due_date) < new Date();
+  const now = new Date();
+  const dueDateObj = unit.due_date ? new Date(unit.due_date) : null;
+  const isPastDue = dueDateObj && dueDateObj < now;
+  const isDueSoon = !isPastDue && dueDateObj && (dueDateObj - now) <= 3 * 24 * 60 * 60 * 1000;
 
   const sections = [
     { key: 'notes',    label: 'Notes' },
@@ -40,8 +43,8 @@ export default function UnitCard({ unit, role, onToggleVis, onDelete, completion
           <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500, letterSpacing: '0.04em' }}>Unit</span>
         )}
         {dueDate && (
-          <span className={`unit-card-due ${isPastDue ? 'unit-card-due--late' : ''}`}>
-            {isPastDue ? '⚠ ' : ''}{isPastDue ? 'Past due' : 'Due'} {dueDate}
+          <span className={`unit-card-due ${isPastDue ? 'unit-card-due--late' : isDueSoon ? 'unit-card-due--soon' : ''}`}>
+            {isPastDue ? '⚠ ' : isDueSoon ? '⏰ ' : ''}{isPastDue ? 'Past due' : 'Due'} {dueDate}
           </span>
         )}
       </div>
@@ -92,6 +95,8 @@ export default function UnitCard({ unit, role, onToggleVis, onDelete, completion
               Manage →
             </button>
           </>
+        ) : unit.has_content === false ? (
+          <span className="unit-card-empty-label">Nothing here yet</span>
         ) : (
           <button className="unit-card-btn unit-card-btn--primary" onClick={() => navigate(basePath)}>
             Open →

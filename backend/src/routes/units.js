@@ -58,7 +58,21 @@ router.get('/:classroomId/units', authenticate, async (req, res, next) => {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    res.json({ units: data });
+
+    // Annotate each unit with whether it has any content (notes or personas)
+    const unitIds = data.map(u => u.id);
+    let hasContentSet = new Set();
+    if (unitIds.length > 0) {
+      const [notesRes, personasRes] = await Promise.all([
+        supabase.from('notes').select('unit_id').in('unit_id', unitIds).not('content', 'is', null),
+        supabase.from('personas').select('unit_id').in('unit_id', unitIds),
+      ]);
+      (notesRes.data || []).forEach(r => hasContentSet.add(r.unit_id));
+      (personasRes.data || []).forEach(r => hasContentSet.add(r.unit_id));
+    }
+
+    const units = data.map(unit => ({ ...unit, has_content: hasContentSet.has(unit.id) }));
+    res.json({ units });
   } catch (err) {
     next(err);
   }

@@ -825,6 +825,11 @@
 
 .classroom-summary-copy { font-size: 12px; color: var(--muted); }
 
+.score-trend { font-size: 20px; font-weight: 700; }
+.score-trend--up   { color: #166534; }
+.score-trend--down { color: var(--rust); }
+.score-trend--flat { color: var(--muted); }
+
 .classroom-units-shell { display: flex; flex-direction: column; gap: 16px; }
 
 .classroom-units-header {
