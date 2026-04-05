@@ -124,14 +124,14 @@ export default function Login({ onLogin }) {
 
           <div className="auth-divider"><span>or</span></div>
 
-          <button className="auth-google-btn" type="button" onClick={loginWithMicrosoft}>
-            <MicrosoftIcon />
-            Continue with Microsoft
-          </button>
-
-          <button className="auth-google-btn" type="button" onClick={loginWithGoogle} style={{ marginTop: 10 }}>
+          <button className="auth-google-btn" type="button" onClick={loginWithGoogle}>
             <GoogleIcon />
             Continue with Google
+          </button>
+
+          <button className="auth-google-btn" type="button" onClick={loginWithMicrosoft} style={{ marginTop: 10 }}>
+            <MicrosoftIcon />
+            Continue with Microsoft
           </button>
 
           <p className="auth-switch">
