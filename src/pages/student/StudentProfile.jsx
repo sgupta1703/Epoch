@@ -286,7 +286,7 @@ export default function StudentProfile({ user }) {
                       placeholder="your@email.com"
                     />
                   </div>
-                )}
+
                 <div className="sp-form-actions">
                   <button type="submit" className="btn btn-primary" disabled={profileSaving}>
                     {profileSaving ? 'Saving...' : 'Save Changes'}
