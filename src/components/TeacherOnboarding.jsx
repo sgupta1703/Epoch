@@ -7,9 +7,8 @@ const STEPS = [
     selector: '[data-onboarding="new-course"]',
     elevate:  '[data-onboarding="new-course"]',
     title: 'Create your first course',
-    body: 'Click "+ New Course" to set up your first classroom. We\'ll move on automatically once it\'s created.',
+    body: 'Click "+ New Course" to set up your first classroom whenever you\'re ready.',
     placement: 'bottom',
-    waitForEvent: 'epoch:classrooms-changed',
   },
   {
     selector: '[data-onboarding="curator-btn"]',
