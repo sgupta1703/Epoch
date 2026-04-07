@@ -90,19 +90,28 @@ export default function SettingsPage({ user, role }) {
 
   async function handleSave() {
     setSaveState('saving');
-    const { settings: savedSettings } = await saveSettings(settings);
-    setSettings({ ...DEFAULT_SETTINGS[role], ...(savedSettings || {}) });
-    setSaveState('saved');
-    window.dispatchEvent(new CustomEvent('epoch:settings-changed', { detail: { role, settings: savedSettings } }));
-    window.setTimeout(() => setSaveState(current => current === 'saved' ? 'idle' : current), 2500);
+    try {
+      const { settings: savedSettings } = await saveSettings(settings);
+      setSettings({ ...DEFAULT_SETTINGS[role], ...(savedSettings || {}) });
+      setSaveState('saved');
+      window.dispatchEvent(new CustomEvent('epoch:settings-changed', { detail: { role, settings: savedSettings } }));
+      window.setTimeout(() => setSaveState(current => current === 'saved' ? 'idle' : current), 2500);
+    } catch {
+      setSaveState('idle');
+    }
   }
 
   async function handleReset() {
     setSaveState('saving');
-    const { settings: nextSettings } = await resetSettings();
-    setSettings(nextSettings);
-    setSaveState('saved');
-    window.dispatchEvent(new CustomEvent('epoch:settings-changed', { detail: { role, settings: nextSettings } }));
+    try {
+      const { settings: nextSettings } = await resetSettings();
+      setSettings(nextSettings);
+      setSaveState('saved');
+      window.dispatchEvent(new CustomEvent('epoch:settings-changed', { detail: { role, settings: nextSettings } }));
+      window.setTimeout(() => setSaveState(current => current === 'saved' ? 'idle' : current), 2500);
+    } catch {
+      setSaveState('idle');
+    }
   }
 
   return (

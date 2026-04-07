@@ -13,7 +13,7 @@ export function renderMarkdown(text) {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
     .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+    .replace(/((?:<li>.+<\/li>\n?)+)/g, '<ul>$1</ul>')
     .replace(/\n\n/g, '</p><p>')
     .replace(/^(?!<[hul])(.+)$/gm, '<p>$1</p>')
     .replace(/<p><\/p>/g, '');

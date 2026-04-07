@@ -768,7 +768,7 @@ router.post('/execute', authenticate, requireRole('teacher'), async (req, res, n
       });
     }
 
-    res.status(400).json({ error: `Unknown action: ${action.name}` });
+    return res.status(400).json({ error: `Unknown action: ${action.name}` });
   } catch (err) {
     next(err);
   }

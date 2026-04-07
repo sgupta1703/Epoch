@@ -26,7 +26,7 @@ router.post('/register', async (req, res, next) => {
     });
 
 if (error) {
-  console.log('Supabase register error:', JSON.stringify(error, null, 2));
+  console.error('Supabase register error:', error.message);
   return res.status(400).json({ error: error.message });
 }
     res.status(201).json({ message: 'Account created successfully', user_id: data.user.id });
