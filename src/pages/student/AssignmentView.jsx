@@ -251,7 +251,7 @@ function AssignmentTaker({ unitId, user, assignment: initialMeta, onBack }) {
 
   async function handleSubmit() {
     if (!assignment) return;
-    const unanswered = questions.filter(q => !answers[q.id]);
+    const unanswered = questions.filter(q => !String(answers[q.id] || '').trim());
     if (unanswered.length > 0) { setError(`Please answer all questions. ${unanswered.length} remaining.`); return; }
     setError(''); setSubmitting(true);
     try {
@@ -262,7 +262,7 @@ function AssignmentTaker({ unitId, user, assignment: initialMeta, onBack }) {
     finally { setSubmitting(false); }
   }
 
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = questions.filter(q => String(answers[q.id] || '').trim()).length;
   const totalCount    = questions.length;
 
   if (loading) return <LoadingSpinner label="Loading assignment…" />;

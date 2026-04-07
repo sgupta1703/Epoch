@@ -42,14 +42,18 @@ export default function Login({ onLogin }) {
   const [quoteVisible, setQuoteVisible] = useState(true);
 
   useEffect(() => {
+    let timeoutId;
     const interval = setInterval(() => {
       setQuoteVisible(false);
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setQuoteIndex((i) => (i + 1) % quotes.length);
         setQuoteVisible(true);
       }, 450);
     }, 4000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   function handleChange(e) {
