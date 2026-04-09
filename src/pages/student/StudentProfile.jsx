@@ -298,7 +298,6 @@ export default function StudentProfile({ user }) {
                       readOnly
                       placeholder="Not on file"
                     />
-                    <p className="sp-field-note">Set during account creation and not editable here.</p>
                   </div>
 
                 <div className="sp-form-actions">
