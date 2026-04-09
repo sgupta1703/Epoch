@@ -55,19 +55,19 @@ export default function ResetPassword() {
   }
 
   const aside = (
-    <div className="auth-aside">
+    <aside className="auth-aside" aria-label="Inspirational quote">
       <blockquote className="auth-quote quote-fade-in">
         <p className="auth-quote-text">"A fresh start is not a new chapter — it's a new book."</p>
         <cite>— Unknown</cite>
       </blockquote>
-    </div>
+    </aside>
   );
 
   // ── Invalid token ──
   if (tokenError) {
     return (
       <div className="auth-page">
-        <div className="auth-panel">
+        <main className="auth-panel">
           <div className="auth-header">
             <Link to="/" className="auth-brand-name">Epoch</Link>
           </div>
@@ -94,7 +94,7 @@ export default function ResetPassword() {
               <Link to="/login">Back to Sign In</Link>
             </p>
           </div>
-        </div>
+        </main>
         {aside}
       </div>
     );
@@ -104,7 +104,7 @@ export default function ResetPassword() {
   if (done) {
     return (
       <div className="auth-page">
-        <div className="auth-panel">
+        <main className="auth-panel">
           <div className="auth-header">
             <Link to="/" className="auth-brand-name">Epoch</Link>
           </div>
@@ -119,7 +119,7 @@ export default function ResetPassword() {
               Sign In Now
             </Link>
           </div>
-        </div>
+        </main>
         {aside}
       </div>
     );
@@ -128,7 +128,7 @@ export default function ResetPassword() {
   // ── Main form ──
   return (
     <div className="auth-page">
-      <div className="auth-panel">
+      <main className="auth-panel">
         <div className="auth-header">
           <Link to="/" className="auth-brand-name">Epoch</Link>
         </div>
@@ -144,9 +144,10 @@ export default function ResetPassword() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="auth-field">
-              <label>New Password</label>
+              <label htmlFor="reset-new-password">New Password</label>
               <div className="auth-pw-wrap">
                 <input
+                  id="reset-new-password"
                   type={showPw ? 'text' : 'password'}
                   value={newPw}
                   onChange={e => setNewPw(e.target.value)}
@@ -158,6 +159,9 @@ export default function ResetPassword() {
                   type="button"
                   className="auth-pw-toggle"
                   onClick={() => setShowPw(v => !v)}
+                  aria-controls="reset-new-password"
+                  aria-pressed={showPw}
+                  aria-label={showPw ? 'Hide new password' : 'Show new password'}
                 >
                   {showPw ? 'Hide' : 'Show'}
                 </button>
@@ -173,8 +177,9 @@ export default function ResetPassword() {
             </div>
 
             <div className="auth-field">
-              <label>Confirm New Password</label>
+              <label htmlFor="reset-confirm-password">Confirm New Password</label>
               <input
+                id="reset-confirm-password"
                 type="password"
                 value={confirmPw}
                 onChange={e => setConfirmPw(e.target.value)}
@@ -197,7 +202,7 @@ export default function ResetPassword() {
             <Link to="/login">Back to Sign In</Link>
           </p>
         </div>
-      </div>
+      </main>
       {aside}
     </div>
   );

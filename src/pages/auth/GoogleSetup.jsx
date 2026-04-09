@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../api/axiosInstance';
+import { isValidStudentNumber, normalizeStudentNumber } from '../../utils/studentNumber';
 import './Auth.css';
 
 export default function GoogleSetup() {
@@ -9,18 +10,24 @@ export default function GoogleSetup() {
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [role, setRole] = useState('student');
+  const [studentNumber, setStudentNumber] = useState(user?.student_number || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!displayName.trim()) return;
+    if (role === 'student' && !isValidStudentNumber(studentNumber)) {
+      setError('Student number must be exactly 7 digits.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
       const { data } = await api.post('/api/profile/setup', {
         display_name: displayName.trim(),
         role,
+        student_number: role === 'student' ? normalizeStudentNumber(studentNumber) : undefined,
       });
 
       if (role === 'teacher') {
@@ -40,7 +47,7 @@ export default function GoogleSetup() {
 
   return (
     <div className="auth-page">
-      <div className="auth-panel">
+      <main className="auth-panel">
         <div className="auth-header">
           <span className="auth-brand-name">Epoch</span>
         </div>
@@ -56,8 +63,9 @@ export default function GoogleSetup() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="auth-field">
-              <label>Your Name</label>
+              <label htmlFor="setup-display-name">Your Name</label>
               <input
+                id="setup-display-name"
                 type="text"
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
@@ -69,13 +77,14 @@ export default function GoogleSetup() {
 
             <div className="auth-field">
               <label>I am a…</label>
-              <div className="auth-role-toggle">
+              <div className="auth-role-toggle" role="group" aria-label="Choose your role">
                 {['student', 'teacher'].map(r => (
                   <button
                     key={r}
                     type="button"
                     className={`auth-role-btn ${role === r ? 'auth-role-btn--active' : ''}`}
                     onClick={() => setRole(r)}
+                    aria-pressed={role === r}
                   >
                     {r === 'teacher' ? 'Educator' : 'Student'}
                   </button>
@@ -83,23 +92,41 @@ export default function GoogleSetup() {
               </div>
             </div>
 
+            {role === 'student' && (
+              <div className="auth-field">
+                <label htmlFor="setup-student-number">Student Number</label>
+                <input
+                  id="setup-student-number"
+                  type="text"
+                  value={studentNumber}
+                  onChange={e => setStudentNumber(normalizeStudentNumber(e.target.value))}
+                  placeholder="7-digit student number"
+                  inputMode="numeric"
+                  pattern="[0-9]{7}"
+                  maxLength={7}
+                  required
+                />
+                <p className="auth-field-note">Required for student accounts. Use your 7-digit school number.</p>
+              </div>
+            )}
+
             <button
               className="auth-submit"
               type="submit"
-              disabled={loading || !displayName.trim()}
+              disabled={loading || !displayName.trim() || (role === 'student' && !isValidStudentNumber(studentNumber))}
             >
               {loading ? 'Setting up…' : 'Continue to Epoch'}
             </button>
           </form>
         </div>
-      </div>
+      </main>
 
-      <div className="auth-aside">
+      <aside className="auth-aside" aria-label="Inspirational quote">
         <blockquote className="auth-quote quote-fade-in">
           <p className="auth-quote-text">"The secret of getting ahead is getting started."</p>
           <cite>— Mark Twain</cite>
         </blockquote>
-      </div>
+      </aside>
     </div>
   );
 }

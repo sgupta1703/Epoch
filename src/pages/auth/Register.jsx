@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register, login, loginWithGoogle, loginWithMicrosoft } from '../../api/auth';
+import { isValidStudentNumber, normalizeStudentNumber } from '../../utils/studentNumber';
 import './Auth.css';
 
 function MicrosoftIcon() {
@@ -40,6 +41,7 @@ export default function Register({ onLogin }) {
     email: '',
     password: '',
     role: 'student',
+    student_number: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,11 @@ export default function Register({ onLogin }) {
   }, []);
 
   function handleChange(e) {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm(f => ({
+      ...f,
+      [name]: name === 'student_number' ? normalizeStudentNumber(value) : value,
+    }));
   }
 
   async function handleSubmit(e) {
@@ -72,9 +78,16 @@ export default function Register({ onLogin }) {
       setError('Password must be at least 6 characters.');
       return;
     }
+    if (form.role === 'student' && !isValidStudentNumber(form.student_number)) {
+      setError('Student number must be exactly 7 digits.');
+      return;
+    }
     setLoading(true);
     try {
-      await register(form);
+      await register({
+        ...form,
+        student_number: form.role === 'student' ? normalizeStudentNumber(form.student_number) : undefined,
+      });
       const { user } = await login({ email: form.email, password: form.password });
       if (user.role === 'teacher') {
         localStorage.setItem('epoch_teacher_onboarding', 'needed');
@@ -92,7 +105,7 @@ export default function Register({ onLogin }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-panel">
+      <main className="auth-panel">
 
         <div className="auth-header">
           <Link to="/" className="auth-brand-name">Epoch</Link>
@@ -107,8 +120,9 @@ export default function Register({ onLogin }) {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="auth-field">
-              <label>Full Name</label>
+              <label htmlFor="register-display-name">Full Name</label>
               <input
+                id="register-display-name"
                 type="text"
                 name="display_name"
                 value={form.display_name}
@@ -120,8 +134,9 @@ export default function Register({ onLogin }) {
             </div>
 
             <div className="auth-field">
-              <label>Email</label>
+              <label htmlFor="register-email">Email</label>
               <input
+                id="register-email"
                 type="email"
                 name="email"
                 value={form.email}
@@ -132,8 +147,9 @@ export default function Register({ onLogin }) {
             </div>
 
             <div className="auth-field">
-              <label>Password</label>
+              <label htmlFor="register-password">Password</label>
               <input
+                id="register-password"
                 type="password"
                 name="password"
                 value={form.password}
@@ -143,15 +159,35 @@ export default function Register({ onLogin }) {
               />
             </div>
 
+            {form.role === 'student' && (
+              <div className="auth-field">
+                <label htmlFor="register-student-number">Student Number</label>
+                <input
+                  id="register-student-number"
+                  type="text"
+                  name="student_number"
+                  value={form.student_number}
+                  onChange={handleChange}
+                  placeholder="7-digit student number"
+                  inputMode="numeric"
+                  pattern="[0-9]{7}"
+                  maxLength={7}
+                  required
+                />
+                <p className="auth-field-note">Required for student accounts. Use your 7-digit school number.</p>
+              </div>
+            )}
+
             <div className="auth-field">
               <label>I am a…</label>
-              <div className="auth-role-toggle">
+              <div className="auth-role-toggle" role="group" aria-label="Choose your role">
                 {['student', 'teacher'].map(r => (
                   <button
                     key={r}
                     type="button"
                     className={`auth-role-btn ${form.role === r ? 'auth-role-btn--active' : ''}`}
                     onClick={() => setForm(f => ({ ...f, role: r }))}
+                    aria-pressed={form.role === r}
                   >
                     {r === 'teacher' ? 'Educator' : 'Student'}
                   </button>
@@ -181,14 +217,14 @@ export default function Register({ onLogin }) {
             <Link to="/login">Sign in</Link>
           </p>
         </div>
-      </div>
+      </main>
 
-      <div className="auth-aside">
+      <aside className="auth-aside" aria-label="Historical quote">
         <blockquote className={`auth-quote ${quoteVisible ? 'quote-fade-in' : 'quote-fade-out'}`}>
           <p className="auth-quote-text">"{quotes[quoteIndex].text}"</p>
           <cite>— {quotes[quoteIndex].source}</cite>
         </blockquote>
-      </div>
+      </aside>
     </div>
   );
 }
