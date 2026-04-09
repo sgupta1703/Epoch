@@ -1,21 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { NotebookPen } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getGlossaryTerms, saveGlossaryTerm, updateGlossaryTerm, deleteGlossaryTerm, lookupTerm } from '../../api/glossary';
 import './GlossaryPanel.css';
 
 function TermCard({ term, onUpdate, onDelete, onGoToChat }) {
-  const [editingTerm, setEditingTerm]   = useState(false);
-  const [termText, setTermText]         = useState(term.term);
-  const [notes, setNotes]               = useState(term.user_notes || '');
-  const [saving, setSaving]             = useState(false);
-  const [expanded, setExpanded]         = useState(false);
+  const [editingTerm, setEditingTerm] = useState(false);
+  const [termText, setTermText] = useState(term.term);
+  const [notes, setNotes] = useState(term.user_notes || '');
+  const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const termInputRef = useRef(null);
 
-  useEffect(() => { if (editingTerm) termInputRef.current?.focus(); }, [editingTerm]);
+  useEffect(() => {
+    if (editingTerm) termInputRef.current?.focus();
+  }, [editingTerm]);
 
   async function saveTerm() {
     const trimmed = termText.trim();
-    if (!trimmed || trimmed === term.term) { setEditingTerm(false); return; }
+    if (!trimmed || trimmed === term.term) {
+      setEditingTerm(false);
+      return;
+    }
     setSaving(true);
     try {
       const { term: updated } = await updateGlossaryTerm(term.id, { term: trimmed });
@@ -44,7 +50,7 @@ function TermCard({ term, onUpdate, onDelete, onGoToChat }) {
 
   return (
     <div className={`gp-card${expanded ? ' gp-card--expanded' : ''}`}>
-      {/* ── Term row ── */}
+      {/* Term row */}
       <div className="gp-card-top">
         {editingTerm ? (
           <input
@@ -53,11 +59,17 @@ function TermCard({ term, onUpdate, onDelete, onGoToChat }) {
             value={termText}
             onChange={e => setTermText(e.target.value)}
             onBlur={saveTerm}
-            onKeyDown={e => { if (e.key === 'Enter') saveTerm(); if (e.key === 'Escape') { setTermText(term.term); setEditingTerm(false); } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') saveTerm();
+              if (e.key === 'Escape') {
+                setTermText(term.term);
+                setEditingTerm(false);
+              }
+            }}
             disabled={saving}
           />
         ) : (
-          <button className="gp-term-name" onClick={() => setExpanded(o => !o)}>
+          <button className="gp-term-name" onClick={() => setExpanded(open => !open)}>
             {termText}
           </button>
         )}
@@ -67,16 +79,20 @@ function TermCard({ term, onUpdate, onDelete, onGoToChat }) {
             className="gp-icon-btn"
             title="Edit term"
             onClick={() => setEditingTerm(true)}
-          >✎</button>
+          >
+            {'\u270E'}
+          </button>
           <button
             className="gp-icon-btn gp-icon-btn--danger"
             title="Delete"
             onClick={() => onDelete(term.id)}
-          >✕</button>
+          >
+            {'\u2715'}
+          </button>
         </div>
       </div>
 
-      {/* ── Source badge ── */}
+      {/* Source badge */}
       {hasSource && (
         <div className="gp-card-source">
           <span className="gp-source-badge">
@@ -85,13 +101,13 @@ function TermCard({ term, onUpdate, onDelete, onGoToChat }) {
           </span>
           {hasMessageLink && (
             <button className="gp-goto-btn" onClick={() => onGoToChat(term)}>
-              Go to chat →
+              Go to chat {'\u2192'}
             </button>
           )}
         </div>
       )}
 
-      {/* ── Expanded body ── */}
+      {/* Expanded body */}
       {expanded && (
         <div className="gp-card-body">
           {term.context_info && (
@@ -116,7 +132,7 @@ function TermCard({ term, onUpdate, onDelete, onGoToChat }) {
               value={notes}
               onChange={e => setNotes(e.target.value)}
               onBlur={saveNotes}
-              placeholder="Add your own notes here…"
+              placeholder="Add your own notes here..."
               disabled={saving}
             />
           </div>
@@ -127,10 +143,10 @@ function TermCard({ term, onUpdate, onDelete, onGoToChat }) {
 }
 
 function AddTermForm({ unitId, unit, onSave, onCancel }) {
-  const [termText, setTermText]         = useState('');
-  const [contextInfo, setContextInfo]   = useState('');
-  const [lookingUp, setLookingUp]       = useState(false);
-  const [saving, setSaving]             = useState(false);
+  const [termText, setTermText] = useState('');
+  const [contextInfo, setContextInfo] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function handleLookup() {
     if (!termText.trim()) return;
@@ -172,8 +188,10 @@ function AddTermForm({ unitId, unit, onSave, onCancel }) {
           className="gp-add-input"
           value={termText}
           onChange={e => setTermText(e.target.value)}
-          placeholder="Enter a term or name…"
-          onKeyDown={e => { if (e.key === 'Enter' && !contextInfo) handleLookup(); }}
+          placeholder="Enter a term or name..."
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !contextInfo) handleLookup();
+          }}
           autoFocus
         />
         <button
@@ -181,7 +199,7 @@ function AddTermForm({ unitId, unit, onSave, onCancel }) {
           onClick={handleLookup}
           disabled={!termText.trim() || lookingUp}
         >
-          {lookingUp ? '…' : 'Look up'}
+          {lookingUp ? '...' : 'Look up'}
         </button>
       </div>
 
@@ -202,7 +220,7 @@ function AddTermForm({ unitId, unit, onSave, onCancel }) {
           onClick={handleSave}
           disabled={!termText.trim() || saving}
         >
-          {saving ? 'Saving…' : 'Save term'}
+          {saving ? 'Saving...' : 'Save term'}
         </button>
       </div>
     </div>
@@ -213,8 +231,8 @@ export default function GlossaryPanel({ isOpen, onClose, unit }) {
   const { classroomId, unitId } = useParams();
   const navigate = useNavigate();
 
-  const [terms, setTerms]           = useState([]);
-  const [loading, setLoading]       = useState(false);
+  const [terms, setTerms] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
   const fetchTerms = useCallback(async () => {
@@ -234,21 +252,24 @@ export default function GlossaryPanel({ isOpen, onClose, unit }) {
     if (isOpen) fetchTerms();
   }, [isOpen, fetchTerms]);
 
-  // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
-    function handleKey(e) { if (e.key === 'Escape') onClose(); }
+    function handleKey(e) {
+      if (e.key === 'Escape') onClose();
+    }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
 
   function handleUpdate(updated) {
-    setTerms(ts => ts.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+    setTerms(currentTerms => currentTerms.map(term => (
+      term.id === updated.id ? { ...term, ...updated } : term
+    )));
   }
 
   async function handleDelete(termId) {
     await deleteGlossaryTerm(termId);
-    setTerms(ts => ts.filter(t => t.id !== termId));
+    setTerms(currentTerms => currentTerms.filter(term => term.id !== termId));
   }
 
   function handleGoToChat(term) {
@@ -260,23 +281,20 @@ export default function GlossaryPanel({ isOpen, onClose, unit }) {
   }
 
   function handleTermSaved(saved) {
-    setTerms(ts => [saved, ...ts]);
+    setTerms(currentTerms => [saved, ...currentTerms]);
     setShowAddForm(false);
   }
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className={`gp-backdrop${isOpen ? ' gp-backdrop--visible' : ''}`}
         onClick={onClose}
       />
 
-      {/* Panel */}
       <div className={`gp-panel${isOpen ? ' gp-panel--open' : ''}`}>
         <div className="gp-header">
           <div className="gp-header-left">
-            <span className="gp-header-icon">📖</span>
             <div>
               <div className="gp-header-title">Glossary</div>
               {terms.length > 0 && (
@@ -287,11 +305,13 @@ export default function GlossaryPanel({ isOpen, onClose, unit }) {
           <div className="gp-header-right">
             <button
               className="gp-add-term-btn"
-              onClick={() => setShowAddForm(o => !o)}
+              onClick={() => setShowAddForm(open => !open)}
             >
               {showAddForm ? 'Cancel' : '+ Add term'}
             </button>
-            <button className="gp-close-btn" onClick={onClose} aria-label="Close glossary">✕</button>
+            <button className="gp-close-btn" onClick={onClose} aria-label="Close glossary">
+              {'\u2715'}
+            </button>
           </div>
         </div>
 
@@ -310,11 +330,13 @@ export default function GlossaryPanel({ isOpen, onClose, unit }) {
           {loading ? (
             <div className="gp-loading">
               <span className="gp-spinner" />
-              <span>Loading…</span>
+              <span>Loading...</span>
             </div>
           ) : terms.length === 0 ? (
             <div className="gp-empty">
-              <div className="gp-empty-icon">📝</div>
+              <div className="gp-empty-icon">
+                <NotebookPen size={40} strokeWidth={1.8} aria-hidden="true" />
+              </div>
               <p className="gp-empty-title">No terms saved yet</p>
               <p className="gp-empty-hint">Highlight any word or phrase in a persona chat and save it here.</p>
             </div>

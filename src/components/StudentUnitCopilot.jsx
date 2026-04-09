@@ -103,11 +103,13 @@ export default function StudentUnitCopilot({ unit, surface }) {
         <span className="student-copilot-trigger-copy">Study help for notes and personas only</span>
       </button>
 
-      {isOpen && (
-        <>
-          <div className="student-copilot-overlay" onClick={() => setIsOpen(false)} />
+      <>
+        <div
+          className={`student-copilot-overlay${isOpen ? ' student-copilot-overlay--visible' : ''}`}
+          onClick={() => setIsOpen(false)}
+        />
 
-          <aside className="student-copilot-drawer">
+        <aside className={`student-copilot-drawer${isOpen ? ' student-copilot-drawer--open' : ''}`}>
             <div className="student-copilot-header">
               <div>
                 <div className="student-copilot-title">Unit Copilot</div>
@@ -200,9 +202,9 @@ export default function StudentUnitCopilot({ unit, surface }) {
                 Send
               </button>
             </div>
-          </aside>
-        </>
-      )}
+        </aside>
+      </>
+
     </>
   );
 }

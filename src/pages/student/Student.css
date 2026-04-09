@@ -866,6 +866,42 @@
 
 .student-unit-meta-pill--due { border-color: rgba(184, 76, 43, 0.22); color: var(--rust); }
 
+.student-unit-glossary-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 14px;
+  border: 1px solid rgba(184, 76, 43, 0.18);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top left, rgba(184, 76, 43, 0.12), transparent 36%),
+    rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 24px rgba(89, 56, 30, 0.07);
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-align: left;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+}
+
+.student-unit-glossary-btn:hover {
+  transform: translateY(-3px);
+  border-color: rgba(184, 76, 43, 0.32);
+  box-shadow: 0 18px 32px rgba(89, 56, 30, 0.12);
+}
+
+.student-unit-glossary-btn-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rust);
+}
+
+.student-unit-glossary-btn-copy {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .student-unit-quicknav {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1102,6 +1138,27 @@
 .chat-messages::-webkit-scrollbar-track  { background: transparent; }
 .chat-messages::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 2px; }
 
+.chat-conv-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 0;
+}
+
+.chat-conv-spinner {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--rust);
+  border-radius: 50%;
+  animation: chat-spin 0.7s linear infinite;
+}
+
+@keyframes chat-spin {
+  to { transform: rotate(360deg); }
+}
+
 .chat-empty-hint {
   color: var(--muted);
   font-size: 14px;
@@ -1116,9 +1173,18 @@
   display: flex;
   flex-direction: column;
   max-width: min(78%, 620px);
+}
+
+/* History messages (loaded from server) — appear instantly, no animation */
+.chat-bubble[data-history] {
+  opacity: 1;
+}
+
+/* New messages (sent this session) — animate in */
+.chat-bubble:not([data-history]) {
   opacity: 0;
   transform: translateY(18px) scale(0.985);
-  animation: student-chat-bubble-in 0.48s cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+  animation: student-chat-bubble-in 0.48s cubic-bezier(0.2, 0.85, 0.2, 1) both;
   animation-delay: calc(var(--chat-bubble-index, 0) * 0.04s);
 }
 
@@ -2695,7 +2761,13 @@
   inset: 0;
   z-index: 210;
   background: rgba(18, 16, 11, 0.24);
-  animation: student-soft-fade-in 0.24s ease;
+  display: none;
+  opacity: 0;
+}
+
+.student-copilot-overlay--visible {
+  display: block;
+  opacity: 1;
 }
 
 .student-copilot-drawer {
@@ -2710,10 +2782,13 @@
   background:
     radial-gradient(circle at top left, rgba(88, 142, 196, 0.08), transparent 28%),
     linear-gradient(180deg, #ffffff 0%, #fbf8f2 100%);
-  box-shadow: -16px 0 44px rgba(29, 24, 18, 0.18);
-  transform: translateX(36px) scale(0.985);
-  opacity: 0;
-  animation: student-copilot-drawer-in 0.42s cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.08);
+  transform: translateX(100%);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.student-copilot-drawer--open {
+  transform: translateX(0);
 }
 
 .student-copilot-header {
