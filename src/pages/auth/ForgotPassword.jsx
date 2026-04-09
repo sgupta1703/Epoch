@@ -46,7 +46,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="auth-page">
-      <div className="auth-panel">
+      <main className="auth-panel">
 
         <div className="auth-header">
           <Link to="/" className="auth-brand-name">Epoch</Link>
@@ -64,7 +64,7 @@ export default function ForgotPassword() {
               </p>
               <p className="auth-subtitle" style={{ marginBottom: 32 }}>
                 Didn't get it?{' '}
-                <button className="auth-inline-btn" onClick={() => setSent(false)}>
+                <button className="auth-inline-btn" type="button" onClick={() => setSent(false)}>
                   Try again
                 </button>
               </p>
@@ -84,8 +84,9 @@ export default function ForgotPassword() {
 
               <form onSubmit={handleSubmit} className="auth-form">
                 <div className="auth-field">
-                  <label>Email Address</label>
+                  <label htmlFor="forgot-email">Email Address</label>
                   <input
+                    id="forgot-email"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -107,14 +108,14 @@ export default function ForgotPassword() {
             </>
           )}
         </div>
-      </div>
+      </main>
 
-      <div className="auth-aside">
+      <aside className="auth-aside" aria-label="Historical quote">
         <blockquote className={`auth-quote ${quoteVisible ? 'quote-fade-in' : 'quote-fade-out'}`}>
           <p className="auth-quote-text">"{quotes[quoteIndex].text}"</p>
           <cite>— {quotes[quoteIndex].source}</cite>
         </blockquote>
-      </div>
+      </aside>
     </div>
   );
 }

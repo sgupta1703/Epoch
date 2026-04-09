@@ -77,7 +77,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-panel">
+      <main className="auth-panel">
 
         <div className="auth-header">
           <Link to="/" className="auth-brand-name">Epoch</Link>
@@ -92,8 +92,9 @@ export default function Login({ onLogin }) {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="auth-field">
-              <label>Email</label>
+              <label htmlFor="login-email">Email</label>
               <input
+                id="login-email"
                 type="email"
                 name="email"
                 value={form.email}
@@ -106,12 +107,13 @@ export default function Login({ onLogin }) {
 
             <div className="auth-field">
               <div className="auth-field-header">
-                <label>Password</label>
+                <label htmlFor="login-password">Password</label>
                 <Link to="/forgot-password" className="auth-forgot-link">
                   Forgot password?
                 </Link>
               </div>
               <input
+                id="login-password"
                 type="password"
                 name="password"
                 value={form.password}
@@ -143,14 +145,14 @@ export default function Login({ onLogin }) {
             <Link to="/register">Create one</Link>
           </p>
         </div>
-      </div>
+      </main>
 
-      <div className="auth-aside">
+      <aside className="auth-aside" aria-label="Historical quote">
         <blockquote className={`auth-quote ${quoteVisible ? 'quote-fade-in' : 'quote-fade-out'}`}>
           <p className="auth-quote-text">"{quotes[quoteIndex].text}"</p>
           <cite>— {quotes[quoteIndex].source}</cite>
         </blockquote>
-      </div>
+      </aside>
     </div>
   );
 }

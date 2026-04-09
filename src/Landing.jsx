@@ -1125,6 +1125,7 @@ export default function Landing() {
           <button className="ln-cta" onClick={() => navigate('/register')}>Get Started</button>
         </div>
       </nav>
+      <main>
 
       {/* ── HERO ── */}
       <section className="lhero">
@@ -1635,6 +1636,7 @@ export default function Landing() {
       </section>
 
       {/* ── FOOTER ── */}
+      </main>
       <footer className="lfooter">
         <div className="lfooter-brand">Epoch</div>
         <div className="lfooter-links">

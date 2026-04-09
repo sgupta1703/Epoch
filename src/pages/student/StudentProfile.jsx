@@ -180,12 +180,14 @@ export default function StudentProfile({ user }) {
   const provider = user?.app_metadata?.provider;
   const isOAuth = provider === 'google' || provider === 'azure';
   const providerName = provider === 'google' ? 'Google' : provider === 'azure' ? 'Microsoft' : null;
+  const resolvedStudentNumber = user?.student_number ?? user?.user_metadata?.student_number ?? '';
 
   const memberDate = stats?.member_since
     ? new Date(stats.member_since).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : '—';
 
   const totalSubmissions = (stats?.assignments_submitted || 0) + (stats?.quizzes_submitted || 0);
+
 
   if (loading) {
     return (
@@ -285,6 +287,18 @@ export default function StudentProfile({ user }) {
                       disabled={isOAuth}
                       placeholder="your@email.com"
                     />
+                  </div>
+
+                  <div className="sp-field">
+                    <label htmlFor="sp-student-number">Student Number</label>
+                    <input
+                      id="sp-student-number"
+                      type="text"
+                      value={resolvedStudentNumber}
+                      readOnly
+                      placeholder="Not on file"
+                    />
+                    <p className="sp-field-note">Set during account creation and not editable here.</p>
                   </div>
 
                 <div className="sp-form-actions">

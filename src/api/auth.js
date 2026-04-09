@@ -26,11 +26,11 @@ export async function loginWithMicrosoft() {
 
 /**
  * Register a new user.
- * @param {{ email: string, password: string, display_name: string, role: 'teacher'|'student' }} data
+ * @param {{ email: string, password: string, display_name: string, role: 'teacher'|'student', student_number?: string }} data
  * @returns {{ message: string, user_id: string }}
  */
-export async function register({ email, password, display_name, role }) {
-  const res = await api.post('/api/auth/register', { email, password, display_name, role });
+export async function register({ email, password, display_name, role, student_number }) {
+  const res = await api.post('/api/auth/register', { email, password, display_name, role, student_number });
   return res.data;
 }
 
