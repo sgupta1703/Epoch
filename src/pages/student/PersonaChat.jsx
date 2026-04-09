@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import HighlightPopup from '../../components/HighlightPopup';
@@ -210,6 +210,8 @@ export default function PersonaChat({ unit }) {
   const [completedMissions, setCompletedMissions] = useState([]);
   const [quizLocked, setQuizLocked]               = useState(false);
   const [loading, setLoading]                     = useState(true);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [historyCount, setHistoryCount]           = useState(0);
   const [chatLoading, setChatLoading]             = useState(false);
   const [inputText, setInputText]                 = useState('');
   const [error, setError]                         = useState('');
@@ -254,6 +256,15 @@ export default function PersonaChat({ unit }) {
 
   // Clean up highlight timer on unmount
   useEffect(() => () => clearTimeout(highlightTimerRef.current), []);
+
+  // Close popup when the chat container scrolls
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    function handleScroll() { setPopup(null); }
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Text selection → highlight popup
   useEffect(() => {
@@ -302,7 +313,7 @@ export default function PersonaChat({ unit }) {
         messageSnippet: snippet,
         position: pos,
         contextInfo: '',
-        loading: true,
+        loading: false,
         saved: false,
       });
     }
@@ -311,26 +322,43 @@ export default function PersonaChat({ unit }) {
     return () => container.removeEventListener('mouseup', handleMouseUp);
   }, [messages]);
 
+  function getPopupLookupArgs() {
+    return {
+      term: popup.term,
+      unit_title: unit?.title,
+      unit_context: unit?.context,
+      persona_name: activePersona?.name,
+      persona_era: activePersona ? formatPersonaEra(activePersona.year_start, activePersona.year_end) : '',
+      message_snippet: popup.messageSnippet,
+    };
+  }
+
   async function handlePopupLookup() {
     if (!popup) return;
     setPopup(p => p ? { ...p, loading: true } : null);
-
-    const era = activePersona
-      ? formatPersonaEra(activePersona.year_start, activePersona.year_end)
-      : '';
-
     try {
-      const { context_info } = await lookupTerm({
-        term: popup.term,
-        unit_title: unit?.title,
-        unit_context: unit?.context,
-        persona_name: activePersona?.name,
-        persona_era: era,
-        message_snippet: popup.messageSnippet,
-      });
+      const { context_info } = await lookupTerm(getPopupLookupArgs());
       setPopup(p => p ? { ...p, loading: false, contextInfo: context_info } : null);
     } catch {
       setPopup(p => p ? { ...p, loading: false, contextInfo: 'Could not load context. Try again.' } : null);
+    }
+  }
+
+  async function handlePopupAddToGlossary() {
+    if (!popup || !unitId) return;
+    setPopup(p => p ? { ...p, loading: true } : null);
+    try {
+      const { context_info } = await lookupTerm(getPopupLookupArgs());
+      await saveGlossaryTerm(unitId, {
+        persona_id:      activePersona?.id,
+        term:            popup.term,
+        context_info,
+        message_index:   popup.messageIndex,
+        message_snippet: popup.messageSnippet,
+      });
+      setPopup(p => p ? { ...p, loading: false, added: true } : null);
+    } catch {
+      setPopup(p => p ? { ...p, loading: false, addError: true } : null);
     }
   }
 
@@ -372,6 +400,7 @@ export default function PersonaChat({ unit }) {
   async function selectPersona(persona) {
     setActivePersona(persona);
     setMessages([]);
+    setHistoryCount(0);
     setTurnCount(0);
     setCompleted(false);
     setCompletedMissions([]);
@@ -381,10 +410,13 @@ export default function PersonaChat({ unit }) {
     setQuizError('');
     setMissionsOpen(true);
     setPopup(null);
+    setConversationLoading(true);
     try {
       const { conversation } = await getConversation(persona.id);
       if (conversation) {
-        setMessages(conversation.messages || []);
+        const msgs = conversation.messages || [];
+        setMessages(msgs);
+        setHistoryCount(msgs.length);
         setTurnCount(conversation.turn_count || 0);
         setCompleted(conversation.completed || false);
         setCompletedMissions(conversation.completed_missions || []);
@@ -400,6 +432,7 @@ export default function PersonaChat({ unit }) {
         } catch { /* no quiz yet */ }
       }
     } catch { /* first conversation */ }
+    finally { setConversationLoading(false); }
   }
 
   async function handleSend() {
@@ -492,7 +525,10 @@ export default function PersonaChat({ unit }) {
           loading={popup.loading}
           contextInfo={popup.contextInfo}
           isSaved={popup.saved}
+          isAdded={popup.added}
+          addError={popup.addError}
           onLookup={handlePopupLookup}
+          onAddToGlossary={handlePopupAddToGlossary}
           onSave={handlePopupSave}
           onClose={() => setPopup(null)}
         />
@@ -632,7 +668,12 @@ export default function PersonaChat({ unit }) {
               ) : (
                 <>
                   <div className="chat-messages" ref={messagesContainerRef}>
-                    {messages.length === 0 && (
+                    {conversationLoading && (
+                      <div className="chat-conv-loading">
+                        <span className="chat-conv-spinner" />
+                      </div>
+                    )}
+                    {!conversationLoading && messages.length === 0 && (
                       <p className="chat-empty-hint">
                         {mode === 'missions' && missions.length > 0
                           ? `Work through the missions above by chatting with ${activePersona.name}.`
@@ -643,8 +684,9 @@ export default function PersonaChat({ unit }) {
                       <div
                         key={i}
                         data-message-index={i}
+                        data-history={i < historyCount ? '' : undefined}
                         className={`chat-bubble chat-bubble--${m.role}${highlightedMessageIndex === i ? ' chat-bubble--highlight' : ''}`}
-                        style={{ '--chat-bubble-index': i }}
+                        style={{ '--chat-bubble-index': i < historyCount ? undefined : i - historyCount }}
                       >
                         <span className="chat-bubble-sender">
                           {m.role === 'user' ? 'You' : activePersona.name}

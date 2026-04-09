@@ -136,9 +136,9 @@ export default function StudentUnit({ user }) {
               <button
                 className="student-unit-glossary-btn"
                 onClick={() => setGlossaryOpen(true)}
-                title="Open Glossary"
               >
-                📖 Glossary
+                <span className="student-unit-glossary-btn-label">Glossary</span>
+                <span className="student-unit-glossary-btn-copy">Your saved terms from this unit</span>
               </button>
               {copilotEnabled && <StudentUnitCopilot unit={unit} surface={activeTab} />}
             </div>
