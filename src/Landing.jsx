@@ -2,6 +2,7 @@ import { Circle, CircleArrowRight, CircleCheckBig, ChartColumnIncreasing, Drama,
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { chatWithLandingGeorgeWashington } from './api/assistant';
+import { renderMarkdown } from './utils/renderMarkdown';
 
 const persona = {
   initial: 'G',
@@ -1189,7 +1190,9 @@ export default function Landing() {
             <div className="pc-body" ref={messagesContainerRef}>
               {visibleMessages.map((msg, i) => (
                 <div key={i} className={msg.from === 'student' ? 'mr-s' : 'mr-p'}>
-                  <div className={`bubble ${msg.from === 'student' ? 'bubble-s' : 'bubble-p'}`}>{msg.text}</div>
+                  {msg.from === 'persona'
+                    ? <div className="bubble bubble-p" dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }} />
+                    : <div className="bubble bubble-s">{msg.text}</div>}
                 </div>
               ))}
               {studentComposing && (
