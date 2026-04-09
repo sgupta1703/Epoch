@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import HighlightPopup from '../../components/HighlightPopup';
 import {
   getPersonas, sendMessage, getConversation,
   generatePersonaQuiz, submitPersonaQuiz, getPersonaQuiz,
 } from '../../api/personas';
+import { lookupTerm, saveGlossaryTerm } from '../../api/glossary';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import '../../styles/pages.css';
 import './Student.css';
@@ -192,10 +194,13 @@ function PersonaQuizView({ persona, quiz, onSubmit }) {
 }
 
 /* ─── Main PersonaChat ─── */
-export default function PersonaChat() {
+export default function PersonaChat({ unit }) {
   const { unitId }     = useParams();
+  const location       = useLocation();
   const messagesEndRef  = useRef(null);
+  const messagesContainerRef = useRef(null);
   const shouldScrollRef = useRef(false);
+  const highlightTimerRef = useRef(null);
 
   const [personas, setPersonas]                   = useState([]);
   const [activePersona, setActivePersona]         = useState(null);
@@ -209,12 +214,21 @@ export default function PersonaChat() {
   const [inputText, setInputText]                 = useState('');
   const [error, setError]                         = useState('');
   const [missionsOpen, setMissionsOpen]           = useState(false);
+  const [highlightedMessageIndex, setHighlightedMessageIndex] = useState(null);
 
   // Quiz state
   const [quizView, setQuizView]             = useState(false);
   const [quiz, setQuiz]                     = useState(null);
   const [quizGenerating, setQuizGenerating] = useState(false);
   const [quizError, setQuizError]           = useState('');
+
+  // Highlight popup state
+  const [popup, setPopup] = useState(null);
+  // popup shape: { term, messageIndex, messageSnippet, position: { top, left, selectionTop }, contextInfo, loading, saved }
+
+  // Navigation state for scroll-to-message (from Glossary "Go to chat")
+  const scrollTarget = location.state?.scrollToMessageIndex;
+  const scrollPersonaId = location.state?.scrollToPersonaId;
 
   useEffect(() => { fetchAll(); }, [unitId]);
 
@@ -224,13 +238,130 @@ export default function PersonaChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Scroll to highlighted message after load
+  useEffect(() => {
+    if (scrollTarget == null || messages.length === 0) return;
+    if (activePersona?.id !== scrollPersonaId) return;
+
+    const el = document.querySelector(`[data-message-index="${scrollTarget}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMessageIndex(scrollTarget);
+      clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = setTimeout(() => setHighlightedMessageIndex(null), 2500);
+    }
+  }, [messages, activePersona, scrollTarget, scrollPersonaId]);
+
+  // Clean up highlight timer on unmount
+  useEffect(() => () => clearTimeout(highlightTimerRef.current), []);
+
+  // Text selection → highlight popup
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    function handleMouseUp() {
+      const selection = window.getSelection();
+      const text = selection?.toString().trim();
+
+      if (!text || text.length < 2 || text.length > 300) {
+        setPopup(null);
+        return;
+      }
+
+      // Walk up from anchor node to find data-message-index
+      let messageIndex = null;
+      let node = selection.anchorNode;
+      while (node && node !== container) {
+        if (node.nodeType === 1 && node.dataset?.messageIndex !== undefined) {
+          messageIndex = parseInt(node.dataset.messageIndex, 10);
+          break;
+        }
+        node = node.parentElement;
+      }
+
+      // Only allow highlighting assistant messages
+      if (messageIndex == null) return;
+
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      // Grab ~120 chars of surrounding message as snippet
+      const msgContent = messages[messageIndex]?.content || '';
+      const snippet = msgContent.length > 120 ? msgContent.slice(0, 120) + '…' : msgContent;
+
+      const pos = {
+        top: rect.bottom + 8,
+        left: rect.left,
+        selectionTop: rect.top - 8,
+      };
+
+      setPopup({
+        term: text,
+        messageIndex,
+        messageSnippet: snippet,
+        position: pos,
+        contextInfo: '',
+        loading: true,
+        saved: false,
+      });
+    }
+
+    container.addEventListener('mouseup', handleMouseUp);
+    return () => container.removeEventListener('mouseup', handleMouseUp);
+  }, [messages]);
+
+  async function handlePopupLookup() {
+    if (!popup) return;
+    setPopup(p => p ? { ...p, loading: true } : null);
+
+    const era = activePersona
+      ? formatPersonaEra(activePersona.year_start, activePersona.year_end)
+      : '';
+
+    try {
+      const { context_info } = await lookupTerm({
+        term: popup.term,
+        unit_title: unit?.title,
+        unit_context: unit?.context,
+        persona_name: activePersona?.name,
+        persona_era: era,
+        message_snippet: popup.messageSnippet,
+      });
+      setPopup(p => p ? { ...p, loading: false, contextInfo: context_info } : null);
+    } catch {
+      setPopup(p => p ? { ...p, loading: false, contextInfo: 'Could not load context. Try again.' } : null);
+    }
+  }
+
+  async function handlePopupSave() {
+    if (!popup || !unitId) return;
+    try {
+      await saveGlossaryTerm(unitId, {
+        persona_id:      activePersona?.id,
+        term:            popup.term,
+        context_info:    popup.contextInfo,
+        message_index:   popup.messageIndex,
+        message_snippet: popup.messageSnippet,
+      });
+      setPopup(p => p ? { ...p, saved: true } : null);
+    } catch {
+      /* silently fail — user can retry */
+    }
+  }
 
   async function fetchAll() {
     setLoading(true);
     try {
       const { personas: loaded } = await getPersonas(unitId);
       setPersonas(loaded);
-      if (loaded.length > 0) await selectPersona(loaded[0]);
+      if (loaded.length > 0) {
+        // If navigating from Glossary, select the target persona
+        const target = scrollPersonaId
+          ? (loaded.find(p => p.id === scrollPersonaId) || loaded[0])
+          : loaded[0];
+        await selectPersona(target);
+      }
     } catch {
       setError('Failed to load personas.');
     } finally {
@@ -249,6 +380,7 @@ export default function PersonaChat() {
     setQuiz(null);
     setQuizError('');
     setMissionsOpen(true);
+    setPopup(null);
     try {
       const { conversation } = await getConversation(persona.id);
       if (conversation) {
@@ -275,6 +407,7 @@ export default function PersonaChat() {
     if (!text || chatLoading) return;
     setInputText('');
     setError('');
+    setPopup(null);
     shouldScrollRef.current = true;
     setMessages(cur => [...cur, { role: 'user', content: text }]);
     setChatLoading(true);
@@ -350,6 +483,20 @@ export default function PersonaChat() {
   return (
     <div>
       {error && <div className="alert alert-error">{error}</div>}
+
+      {/* Highlight popup */}
+      {popup && (
+        <HighlightPopup
+          term={popup.term}
+          position={popup.position}
+          loading={popup.loading}
+          contextInfo={popup.contextInfo}
+          isSaved={popup.saved}
+          onLookup={handlePopupLookup}
+          onSave={handlePopupSave}
+          onClose={() => setPopup(null)}
+        />
+      )}
 
       {personas.length === 0 ? (
         <div className="empty-state">
@@ -484,7 +631,7 @@ export default function PersonaChat() {
                 />
               ) : (
                 <>
-                  <div className="chat-messages">
+                  <div className="chat-messages" ref={messagesContainerRef}>
                     {messages.length === 0 && (
                       <p className="chat-empty-hint">
                         {mode === 'missions' && missions.length > 0
@@ -495,7 +642,8 @@ export default function PersonaChat() {
                     {messages.map((m, i) => (
                       <div
                         key={i}
-                        className={`chat-bubble chat-bubble--${m.role}`}
+                        data-message-index={i}
+                        className={`chat-bubble chat-bubble--${m.role}${highlightedMessageIndex === i ? ' chat-bubble--highlight' : ''}`}
                         style={{ '--chat-bubble-index': i }}
                       >
                         <span className="chat-bubble-sender">

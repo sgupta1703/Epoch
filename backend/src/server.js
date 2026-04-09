@@ -15,6 +15,7 @@ const assistantRoutes   = require('./routes/assistant');
 const settingsRoutes    = require('./routes/settings');
 const studentRoutes     = require('./routes/student');
 const profileRoutes     = require('./routes/profile');
+const glossaryRoutes    = require('./routes/glossary');
 
 const app = express();
 
@@ -74,6 +75,7 @@ app.use('/api/assistant',  assistantRoutes);
 app.use('/api/settings',   settingsRoutes);
 app.use('/api/student',    studentRoutes);
 app.use('/api/profile',    profileRoutes);
+app.use('/api/glossary',   glossaryRoutes);
 
 app.get('/api/health', (req, res) => {
   console.log('[health] ok');

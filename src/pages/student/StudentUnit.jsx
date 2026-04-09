@@ -4,6 +4,7 @@ import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import StudentUnitCopilot from '../../components/StudentUnitCopilot';
+import GlossaryPanel from './GlossaryPanel';
 import { getClassrooms } from '../../api/classrooms';
 import { getUnit } from '../../api/units';
 import NotesView from './NotesView';
@@ -47,6 +48,7 @@ export default function StudentUnit({ user }) {
   const [unit, setUnit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeQuizLock, setActiveQuizLock] = useState(() => getActiveStudentQuizLock(user?.id));
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
   const activeTab = getActiveTabFromPath(location.pathname);
   const copilotEnabled = activeTab === 'notes' || activeTab === 'personas';
   const quizLocked = !!activeQuizLock;
@@ -131,6 +133,13 @@ export default function StudentUnit({ user }) {
                   Due {new Date(unit.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                 </span>
               )}
+              <button
+                className="student-unit-glossary-btn"
+                onClick={() => setGlossaryOpen(true)}
+                title="Open Glossary"
+              >
+                📖 Glossary
+              </button>
               {copilotEnabled && <StudentUnitCopilot unit={unit} surface={activeTab} />}
             </div>
           </div>
@@ -159,6 +168,12 @@ export default function StudentUnit({ user }) {
           {activeTab === 'assignment' && <AssignmentView user={user} unit={unit} embedded />}
         </main>
       </div>
+
+      <GlossaryPanel
+        isOpen={glossaryOpen}
+        onClose={() => setGlossaryOpen(false)}
+        unit={unit}
+      />
     </>
   );
 }

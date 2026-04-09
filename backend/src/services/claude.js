@@ -1138,6 +1138,38 @@ Return ONLY a valid JSON array. No explanation, no markdown, no backticks. Each 
   return JSON.parse(raw.slice(start, end + 1));
 }
 
+async function lookupTermContext({ term, unit_title, unit_context, persona_name, persona_era, message_snippet }) {
+  const unitLine = unit_title
+    ? `The student is studying: ${unit_title}${unit_context ? ` — ${unit_context}` : ''}`
+    : '';
+  const personaLine = persona_name
+    ? `They were chatting with ${persona_name}${persona_era ? ` (${persona_era})` : ''}.`
+    : '';
+  const snippetLine = message_snippet
+    ? `Surrounding context from the conversation: "${message_snippet}"`
+    : '';
+
+  const prompt = `You are a history education assistant helping a student understand something they encountered in a lesson.
+
+${unitLine}
+${personaLine}
+The student highlighted: "${term}"
+${snippetLine}
+
+In 2–4 sentences, explain what "${term}" means or refers to:
+- Be historically accurate
+- Connect it to what the student is studying if relevant
+- Write clearly for a high school student — no academic jargon
+- If it is a person's name, briefly say who they were and their significance
+- If it is an event or battle, say what it was and why it mattered
+- If it is a concept or term, define it and give context
+
+Do not start with "I" or refer to yourself. Give the explanation directly.`;
+
+  const result = await model.generateContent(prompt);
+  return result.response.text().trim();
+}
+
 module.exports = {
   generateNotes,
   chatWithEpochAssistant,
@@ -1157,4 +1189,5 @@ module.exports = {
   generatePersonaMissions,
   generatePersonaQuizQuestions,
   evaluateMissionCompletion,
+  lookupTermContext,
 };
