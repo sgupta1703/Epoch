@@ -4,6 +4,8 @@ const multer = require('multer');
 const supabase = require('../services/supabaseClient');
 const authenticate = require('../middleware/authenticate');
 const requireRole = require('../middleware/requireRole');
+const { normalizeStudentNumber, isValidStudentNumber } = require('../utils/studentNumber');
+
 
 const avatarUpload = multer({
   storage: multer.memoryStorage(),
@@ -337,7 +339,7 @@ router.patch('/teacher/classes/:classroomId', authenticate, requireRole('teacher
 router.post('/setup', authenticate, async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { display_name, role } = req.body;
+    const { display_name, role, student_number } = req.body;
 
     if (!display_name?.trim()) {
       return res.status(400).json({ error: 'display_name is required' });
@@ -346,14 +348,44 @@ router.post('/setup', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'role must be "teacher" or "student"' });
     }
 
-    const { error: upsertErr } = await supabase
-      .from('profiles')
-      .upsert({ id: userId, display_name: display_name.trim(), role });
+    const normalizedStudentNumber = role === 'student' ? normalizeStudentNumber(student_number) : null;
 
-    if (upsertErr) throw upsertErr;
+    if (role === 'student' && !isValidStudentNumber(normalizedStudentNumber)) {
+      return res.status(400).json({ error: 'student_number must be exactly 7 digits for student accounts' });
+    }
+
+    if (normalizedStudentNumber) {
+      const { data: existing, error: dupErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('student_number', normalizedStudentNumber)
+        .neq('id', userId)
+        .maybeSingle();
+      if (dupErr) throw dupErr;
+      if (existing) return res.status(400).json({ error: 'That student number is already in use.' });
+    }
+
+    // Same insert → update pattern as registration
+    const profilePayload = { id: userId, display_name: display_name.trim(), role, student_number: normalizedStudentNumber };
+    const { error: insertErr } = await supabase.from('profiles').insert(profilePayload);
+
+    if (insertErr) {
+      if (insertErr.code === '23505' && insertErr.message?.includes('student_number')) {
+        return res.status(400).json({ error: 'That student number is already in use.' });
+      }
+      if (insertErr.code === '23505') {
+        const { error: updateErr } = await supabase
+          .from('profiles')
+          .update({ display_name: display_name.trim(), role, student_number: normalizedStudentNumber })
+          .eq('id', userId);
+        if (updateErr) throw updateErr;
+      } else {
+        throw insertErr;
+      }
+    }
 
     await supabase.auth.admin.updateUserById(userId, {
-      user_metadata: { display_name: display_name.trim(), role },
+      user_metadata: { ...(req.user.user_metadata || {}), display_name: display_name.trim(), role, student_number: normalizedStudentNumber },
     });
 
     const { data: profile, error: fetchErr } = await supabase
@@ -361,10 +393,17 @@ router.post('/setup', authenticate, async (req, res, next) => {
       .select('*')
       .eq('id', userId)
       .single();
-
     if (fetchErr) throw fetchErr;
 
-    res.json({ user: { ...profile, email: req.user.email || null, app_metadata: req.user.app_metadata } });
+    res.json({
+      user: {
+        ...profile,
+        student_number: profile?.student_number ?? null,
+        email: req.user.email || null,
+        app_metadata: req.user.app_metadata,
+        user_metadata: { ...(req.user.user_metadata || {}), display_name: display_name.trim(), role, student_number: normalizedStudentNumber },
+      },
+    });
   } catch (err) { next(err); }
 });
 
@@ -406,7 +445,10 @@ router.put('/', authenticate, async (req, res, next) => {
     // Update user_metadata display_name
     if (trimmedDisplayName) {
       const { error: metaErr } = await supabase.auth.admin.updateUserById(userId, {
-        user_metadata: { display_name: trimmedDisplayName },
+        user_metadata: {
+          ...(req.user.user_metadata || {}),
+          display_name: trimmedDisplayName,
+        },
       });
       if (metaErr) throw metaErr;
     }
@@ -423,8 +465,13 @@ router.put('/', authenticate, async (req, res, next) => {
     res.json({
       user: {
         ...profile,
+        student_number: profile?.student_number ?? req.user.user_metadata?.student_number ?? null,
         email: normalizedEmail || req.user.email || null,
         app_metadata: req.user.app_metadata,
+        user_metadata: {
+          ...(req.user.user_metadata || {}),
+          ...(trimmedDisplayName ? { display_name: trimmedDisplayName } : {}),
+        },
       },
     });
   } catch (err) { next(err); }

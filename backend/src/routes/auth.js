@@ -2,33 +2,69 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabaseClient');
 const authenticate = require('../middleware/authenticate');
+const { normalizeStudentNumber, isValidStudentNumber } = require('../utils/studentNumber');
 
 // POST /api/auth/register
-// Body: { email, password, display_name, role: 'teacher'|'student' }
+// Body: { email, password, display_name, role: 'teacher'|'student', student_number?: string }
 router.post('/register', async (req, res, next) => {
   try {
-    const { email, password, display_name, role } = req.body;
+    const { email, password, display_name, role, student_number } = req.body;
 
     if (!email || !password || !display_name || !role) {
       return res.status(400).json({ error: 'email, password, display_name, and role are required' });
     }
-
     if (!['teacher', 'student'].includes(role)) {
       return res.status(400).json({ error: 'role must be "teacher" or "student"' });
     }
 
-    // Sign up — the trigger on auth.users will create the profile row
+    const normalizedStudentNumber = role === 'student' ? normalizeStudentNumber(student_number) : null;
+
+    if (role === 'student' && !isValidStudentNumber(normalizedStudentNumber)) {
+      return res.status(400).json({ error: 'student_number must be exactly 7 digits for student accounts' });
+    }
+
+    // Check student number isn't already taken
+    if (normalizedStudentNumber) {
+      const { data: existing, error: dupErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('student_number', normalizedStudentNumber)
+        .maybeSingle();
+      if (dupErr) throw dupErr;
+      if (existing) return res.status(400).json({ error: 'That student number is already in use.' });
+    }
+
+    // Create auth user
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { display_name, role }
+      user_metadata: { display_name: display_name.trim(), role, student_number: normalizedStudentNumber },
     });
+    if (error) return res.status(400).json({ error: error.message });
 
-if (error) {
-  console.error('Supabase register error:', error.message);
-  return res.status(400).json({ error: error.message });
-}
+    // Write profile. If a Supabase trigger already created the row, the insert will
+    // fail with a 23505 (unique violation on id) — in that case fall back to update.
+    const profilePayload = { id: data.user.id, display_name: display_name.trim(), role, student_number: normalizedStudentNumber };
+    const { error: insertErr } = await supabase.from('profiles').insert(profilePayload);
+
+    if (insertErr) {
+      if (insertErr.code === '23505' && insertErr.message?.includes('student_number')) {
+        await supabase.auth.admin.deleteUser(data.user.id);
+        return res.status(400).json({ error: 'That student number is already in use.' });
+      }
+      if (insertErr.code === '23505') {
+        // Row already exists from trigger — update it with the full payload
+        const { error: updateErr } = await supabase
+          .from('profiles')
+          .update({ display_name: display_name.trim(), role, student_number: normalizedStudentNumber })
+          .eq('id', data.user.id);
+        if (updateErr) throw updateErr;
+      } else {
+        throw insertErr;
+      }
+    }
+
     res.status(201).json({ message: 'Account created successfully', user_id: data.user.id });
   } catch (err) {
     next(err);
@@ -60,7 +96,10 @@ router.post('/login', async (req, res, next) => {
       refresh_token: data.session.refresh_token,
       user: {
         ...profile,
+        student_number: profile?.student_number ?? data.user.user_metadata?.student_number ?? null,
         email: data.user.email || null,
+        app_metadata: data.user.app_metadata,
+        user_metadata: data.user.user_metadata,
       }
     });
   } catch (err) {
