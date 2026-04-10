@@ -2400,3 +2400,129 @@
   }
 }
 
+/* ── Course Settings tab ── */
+.course-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 640px;
+}
+.cs-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cs-section--danger {
+  border-color: #fca5a5;
+}
+.cs-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.cs-section--danger .cs-section-title {
+  color: #b91c1c;
+  border-bottom-color: #fca5a5;
+  background: #fff5f5;
+}
+.cs-section-body {
+  padding: 16px;
+}
+.cs-input {
+  flex: 1;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  width: 100%;
+}
+.cs-input:focus { outline: none; border-color: var(--rust); box-shadow: 0 0 0 2px rgba(192,80,31,.15); }
+.cs-code-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.cs-code {
+  font-family: monospace;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--ink);
+}
+.cs-link-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.cs-link-input {
+  font-family: monospace;
+  font-size: 12px;
+}
+.cs-copy-btn { white-space: nowrap; min-width: 96px; }
+.cs-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+}
+/* Toggle switch */
+.cs-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.cs-toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+.cs-toggle-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.cs-toggle {
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--border);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background .2s;
+  margin-top: 2px;
+}
+.cs-toggle--on { background: var(--rust); }
+.cs-toggle:disabled { opacity: .5; cursor: default; }
+.cs-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  transition: transform .2s;
+}
+.cs-toggle--on .cs-toggle-knob { transform: translateX(20px); }
+.cs-danger-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+

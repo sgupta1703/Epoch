@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login, loginWithGoogle, loginWithMicrosoft } from '../../api/auth';
+import { consumePendingJoin } from '../../utils/pendingJoin';
 import './Auth.css';
 
 function MicrosoftIcon() {
@@ -66,8 +67,9 @@ export default function Login({ onLogin }) {
     setLoading(true);
     try {
       const { user } = await login(form);
+      const joinedClass = user.role === 'student' ? await consumePendingJoin() : null;
       onLogin(user);
-      navigate(user.role === 'teacher' ? '/teacher' : '/student');
+      navigate(user.role === 'teacher' ? '/teacher' : '/student', { state: joinedClass ? { justJoined: joinedClass } : undefined });
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid email or password.');
     } finally {

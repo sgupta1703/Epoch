@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/Sidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -363,6 +363,8 @@ function RightPanel({ items, classrooms, joinCode, setJoinCode, onJoin, joining,
 
 export default function StudentDashboard({ user }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [joinedBanner, setJoinedBanner] = useState(location.state?.justJoined || null);
   const [classrooms, setClassrooms] = useState([]);
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -486,6 +488,13 @@ export default function StudentDashboard({ user }) {
         <Sidebar classrooms={classrooms} role="student" loading={loading} />
 
         <main className="page-main db-main">
+
+          {joinedBanner && (
+            <div className="alert alert-success" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>You've joined <strong>{joinedBanner}</strong>!</span>
+              <button onClick={() => setJoinedBanner(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, color: 'inherit' }}>✕</button>
+            </div>
+          )}
 
           {/* ── Header ── */}
           <div className="db-header">

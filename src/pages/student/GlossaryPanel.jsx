@@ -276,7 +276,7 @@ export default function GlossaryPanel({ isOpen, onClose, unit }) {
     onClose();
     navigate(
       `/student/classroom/${classroomId}/unit/${unitId}/personas`,
-      { state: { scrollToPersonaId: term.persona_id, scrollToMessageIndex: term.message_index } }
+      { state: { scrollToPersonaId: term.persona_id, scrollToMessageIndex: term.message_index, scrollToTerm: term.term } }
     );
   }
 

@@ -154,20 +154,42 @@ export default function EpochLanding() {
   }, [visMsg, typing]);
 
 
-  function handleSend(e) {
+  async function handleSend(e) {
     e?.preventDefault?.();
     const txt = demoInput.trim();
     if (!txt || !demoReady || typing || studentComposing || demoReplying) return;
-    const next = [...visMsg, { from: 'student', text: txt }];
-    setVisMsg(next);
+
+    const userMsg = { from: 'student', text: txt };
+    const nextMsgs = [...visMsg, userMsg];
+    setVisMsg(nextMsgs);
     setDemoInput('');
     setDemoReplying(true);
     setTyping(true);
-    setTimeout(() => {
+
+    // Build history in the format the backend expects
+    const history = nextMsgs.map(m => ({
+      role: m.from === 'student' ? 'user' : 'assistant',
+      content: m.text,
+    }));
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/demo/chat`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: txt, history: history.slice(0, -1) }),
+        }
+      );
+      const data = await res.json();
       setTyping(false);
-      setVisMsg(c => [...c, { from: 'persona', text: 'The path of liberty was never easy — but every sacrifice made the cause more worthy of the cost.' }]);
+      setVisMsg(c => [...c, { from: 'persona', text: data.reply }]);
+    } catch {
+      setTyping(false);
+      setVisMsg(c => [...c, { from: 'persona', text: 'I am afraid the courier has not yet arrived with a response. Try again.' }]);
+    } finally {
       setDemoReplying(false);
-    }, 1800);
+    }
   }
 
   const teacherMockup = {

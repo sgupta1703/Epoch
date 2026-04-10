@@ -1304,6 +1304,20 @@
   border-radius: 10px;
 }
 
+@keyframes term-highlight-fade {
+  0%   { background: rgba(184,76,43,0.35); color: inherit; border-radius: 3px; }
+  60%  { background: rgba(184,76,43,0.15); }
+  100% { background: transparent; }
+}
+
+mark.term-highlight {
+  background: transparent;
+  color: inherit;
+  animation: term-highlight-fade 2.5s ease forwards;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 /* ── Chat input ── */
 .chat-input-row {
   display: flex;

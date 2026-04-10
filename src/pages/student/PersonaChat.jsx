@@ -231,6 +231,7 @@ export default function PersonaChat({ unit }) {
   // Navigation state for scroll-to-message (from Glossary "Go to chat")
   const scrollTarget = location.state?.scrollToMessageIndex;
   const scrollPersonaId = location.state?.scrollToPersonaId;
+  const scrollToTerm = location.state?.scrollToTerm || null;
 
   useEffect(() => { fetchAll(); }, [unitId]);
 
@@ -335,18 +336,18 @@ export default function PersonaChat({ unit }) {
 
   async function handlePopupLookup() {
     if (!popup) return;
-    setPopup(p => p ? { ...p, loading: true } : null);
+    setPopup(p => p ? { ...p, loading: true, loadingAction: 'lookup' } : null);
     try {
       const { context_info } = await lookupTerm(getPopupLookupArgs());
-      setPopup(p => p ? { ...p, loading: false, contextInfo: context_info } : null);
+      setPopup(p => p ? { ...p, loading: false, loadingAction: null, contextInfo: context_info } : null);
     } catch {
-      setPopup(p => p ? { ...p, loading: false, contextInfo: 'Could not load context. Try again.' } : null);
+      setPopup(p => p ? { ...p, loading: false, loadingAction: null, contextInfo: 'Could not load context. Try again.' } : null);
     }
   }
 
   async function handlePopupAddToGlossary() {
     if (!popup || !unitId) return;
-    setPopup(p => p ? { ...p, loading: true } : null);
+    setPopup(p => p ? { ...p, loading: true, loadingAction: 'add' } : null);
     try {
       const { context_info } = await lookupTerm(getPopupLookupArgs());
       await saveGlossaryTerm(unitId, {
@@ -356,9 +357,9 @@ export default function PersonaChat({ unit }) {
         message_index:   popup.messageIndex,
         message_snippet: popup.messageSnippet,
       });
-      setPopup(p => p ? { ...p, loading: false, added: true } : null);
+      setPopup(p => p ? { ...p, loading: false, loadingAction: null, added: true } : null);
     } catch {
-      setPopup(p => p ? { ...p, loading: false, addError: true } : null);
+      setPopup(p => p ? { ...p, loading: false, loadingAction: null, addError: true } : null);
     }
   }
 
@@ -523,6 +524,7 @@ export default function PersonaChat({ unit }) {
           term={popup.term}
           position={popup.position}
           loading={popup.loading}
+          loadingAction={popup.loadingAction}
           contextInfo={popup.contextInfo}
           isSaved={popup.saved}
           isAdded={popup.added}
@@ -680,24 +682,36 @@ export default function PersonaChat({ unit }) {
                           : `Ask ${activePersona.name} anything about this period in history.`}
                       </p>
                     )}
-                    {messages.map((m, i) => (
-                      <div
-                        key={i}
-                        data-message-index={i}
-                        data-history={i < historyCount ? '' : undefined}
-                        className={`chat-bubble chat-bubble--${m.role}${highlightedMessageIndex === i ? ' chat-bubble--highlight' : ''}`}
-                        style={{ '--chat-bubble-index': i < historyCount ? undefined : i - historyCount }}
-                      >
-                        <span className="chat-bubble-sender">
-                          {m.role === 'user' ? 'You' : activePersona.name}
-                        </span>
-                        {m.role === 'assistant'
-                          ? <div className="chat-bubble-text chat-bubble-text--markdown"
-                                 dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }} />
-                          : <div className="chat-bubble-text">{m.content}</div>
-                        }
-                      </div>
-                    ))}
+                    {messages.map((m, i) => {
+                      const isTarget = highlightedMessageIndex === i && scrollToTerm && m.role === 'assistant';
+                      let html = m.role === 'assistant' ? renderMarkdown(m.content) : null;
+                      if (isTarget && html) {
+                        // Inject a <mark> around the first case-insensitive occurrence of the term
+                        const escaped = scrollToTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        html = html.replace(
+                          new RegExp(`(${escaped})`, 'i'),
+                          '<mark class="term-highlight">$1</mark>'
+                        );
+                      }
+                      return (
+                        <div
+                          key={i}
+                          data-message-index={i}
+                          data-history={i < historyCount ? '' : undefined}
+                          className={`chat-bubble chat-bubble--${m.role}${highlightedMessageIndex === i ? ' chat-bubble--highlight' : ''}`}
+                          style={{ '--chat-bubble-index': i < historyCount ? undefined : i - historyCount }}
+                        >
+                          <span className="chat-bubble-sender">
+                            {m.role === 'user' ? 'You' : activePersona.name}
+                          </span>
+                          {m.role === 'assistant'
+                            ? <div className="chat-bubble-text chat-bubble-text--markdown"
+                                   dangerouslySetInnerHTML={{ __html: html }} />
+                            : <div className="chat-bubble-text">{m.content}</div>
+                          }
+                        </div>
+                      );
+                    })}
                     {chatLoading && (
                       <div
                         className="chat-bubble chat-bubble--assistant chat-bubble--loading"

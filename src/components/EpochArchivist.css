@@ -620,3 +620,65 @@
   .epoch-archivist-panel { width: calc(100vw - 32px); max-height: 80vh; }
   .epoch-archivist-trigger--pill { width: 156px; }
 }
+
+/* ── Join card (shown after create_classroom) ───────────────── */
+.epoch-archivist-join-card {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2d9cc);
+  border-radius: 8px;
+}
+.epoch-archivist-join-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.epoch-archivist-join-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted, #888);
+  min-width: 64px;
+  flex-shrink: 0;
+}
+.epoch-archivist-join-code {
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--ink, #1a1612);
+  flex: 1;
+}
+.epoch-archivist-join-link {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--ink, #1a1612);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.epoch-archivist-join-copy {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border: 1px solid var(--border, #e2d9cc);
+  border-radius: 5px;
+  background: var(--surface, #fff);
+  color: var(--ink, #1a1612);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s, border-color .15s;
+}
+.epoch-archivist-join-copy:hover {
+  background: var(--rust, #c0501f);
+  border-color: var(--rust, #c0501f);
+  color: #fff;
+}
+

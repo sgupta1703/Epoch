@@ -24,6 +24,7 @@
 .auth-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 52px;
   height: 64px;
   border-bottom: 1px solid var(--border);

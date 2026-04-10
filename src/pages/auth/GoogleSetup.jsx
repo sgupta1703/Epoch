@@ -6,8 +6,13 @@ import { isValidStudentNumber, normalizeStudentNumber } from '../../utils/studen
 import './Auth.css';
 
 export default function GoogleSetup() {
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
+
+  async function handleBack() {
+    logout();
+    navigate('/login', { replace: true });
+  }
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [role, setRole] = useState('student');
   const [studentNumber, setStudentNumber] = useState(user?.student_number || '');
@@ -50,6 +55,13 @@ export default function GoogleSetup() {
       <main className="auth-panel">
         <div className="auth-header">
           <span className="auth-brand-name">Epoch</span>
+          <button
+            type="button"
+            onClick={handleBack}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}
+          >
+            ← Back
+          </button>
         </div>
 
         <div className="auth-body">

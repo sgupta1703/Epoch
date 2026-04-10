@@ -9,6 +9,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import {
   getClassrooms, getClassroom, getClassroomStudents, removeStudent,
   getClassroomPerformance, getClassAnalysis, analyzeClassPerformance,
+  updateClassroom, deleteClassroom, regenerateJoinCode,
 } from '../../api/classrooms';
 import { getUnits, createUnit, deleteUnit, setUnitVisibility } from '../../api/units';
 import CourseQuizResultsModal from './CourseQuizResults';
@@ -379,10 +380,63 @@ export default function ClassroomView({ user }) {
   const classroomIndex = classrooms.findIndex(c => String(c.id) === String(classroomId));
   const courseAccentVariant = classroomIndex >= 0 ? classroomIndex % 5 : 0;
 
+  // Settings tab state
+  const [renameValue, setRenameValue]       = useState('');
+  const [renaming, setRenaming]             = useState(false);
+  const [renameError, setRenameError]       = useState('');
+  const [renameSaved, setRenameSaved]       = useState(false);
+  const [regenerating, setRegenerating]     = useState(false);
+  const [codeCopied, setCodeCopied]         = useState(false);
+  const [linkCopied, setLinkCopied]         = useState(false);
+  const [lockSaving, setLockSaving]         = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingCourse, setDeletingCourse] = useState(false);
+
   function handleCopyCode() {
     navigator.clipboard.writeText(classroom?.join_code || '').catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
+  }
+
+  async function handleRename() {
+    if (!renameValue.trim() || renameValue.trim() === classroom?.name) return;
+    setRenaming(true); setRenameError('');
+    try {
+      const { classroom: updated } = await updateClassroom(classroomId, { name: renameValue.trim() });
+      setClassroom(updated);
+      setClassrooms(cs => cs.map(c => c.id === updated.id ? { ...c, name: updated.name } : c));
+      window.dispatchEvent(new CustomEvent('epoch:classrooms-changed'));
+      setRenameSaved(true);
+      setTimeout(() => setRenameSaved(false), 2000);
+    } catch { setRenameError('Failed to rename.'); }
+    finally { setRenaming(false); }
+  }
+
+  async function handleRegenerateCode() {
+    setRegenerating(true);
+    try {
+      const { classroom: updated } = await regenerateJoinCode(classroomId);
+      setClassroom(updated);
+    } catch { /* silent */ }
+    finally { setRegenerating(false); }
+  }
+
+  async function handleToggleLock() {
+    setLockSaving(true);
+    try {
+      const { classroom: updated } = await updateClassroom(classroomId, { is_locked: !classroom.is_locked });
+      setClassroom(updated);
+    } catch { /* silent */ }
+    finally { setLockSaving(false); }
+  }
+
+  async function handleDeleteCourse() {
+    setDeletingCourse(true);
+    try {
+      await deleteClassroom(classroomId);
+      window.dispatchEvent(new CustomEvent('epoch:classrooms-changed'));
+      navigate('/teacher');
+    } catch { setDeletingCourse(false); }
   }
 
   useEffect(() => { fetchAll(); }, [classroomId]);
@@ -566,6 +620,12 @@ export default function ClassroomView({ user }) {
             >
               Class Performance
             </button>
+            <button
+              className={`classroom-tab ${activeTab === 'settings' ? 'classroom-tab--active' : ''}`}
+              onClick={() => { setActiveTab('settings'); setRenameValue(classroom?.name || ''); }}
+            >
+              Settings
+            </button>
           </div>
 
           {/* ── Units tab ── */}
@@ -645,8 +705,104 @@ export default function ClassroomView({ user }) {
           {activeTab === 'performance' && (
             <PerformanceTab classroomId={classroomId} units={units} students={students} />
           )}
+
+          {/* ── Settings tab ── */}
+          {activeTab === 'settings' && (
+            <div className="course-settings">
+
+              {/* Rename */}
+              <div className="cs-section">
+                <div className="cs-section-title">Rename Course</div>
+                <div className="cs-section-body">
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <input
+                      className="cs-input"
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleRename()}
+                      placeholder="Course name"
+                    />
+                    <button className="btn btn-primary" onClick={handleRename} disabled={renaming || !renameValue.trim() || renameValue.trim() === classroom?.name}>
+                      {renaming ? 'Saving…' : renameSaved ? '✓ Saved' : 'Save'}
+                    </button>
+                  </div>
+                  {renameError && <div className="alert alert-error" style={{ marginTop: 8 }}>{renameError}</div>}
+                </div>
+              </div>
+
+              {/* Join code + invite link */}
+              <div className="cs-section">
+                <div className="cs-section-title">Join Code & Invite Link</div>
+                <div className="cs-section-body">
+                  <div className="cs-code-row">
+                    <span className="cs-code">{classroom?.join_code}</span>
+                    <button className="btn btn-secondary cs-copy-btn" onClick={() => { navigator.clipboard.writeText(classroom?.join_code || ''); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}>
+                      {codeCopied ? '✓ Copied!' : 'Copy Code'}
+                    </button>
+                  </div>
+                  <div className="cs-link-row">
+                    <input readOnly className="cs-input cs-link-input" value={`${window.location.origin}/join?code=${classroom?.join_code}`} onFocus={e => e.target.select()} />
+                    <button className="btn btn-secondary cs-copy-btn" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join?code=${classroom?.join_code}`); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); }}>
+                      {linkCopied ? '✓ Copied!' : 'Copy Link'}
+                    </button>
+                  </div>
+                  <p className="cs-hint">Students who use this link are auto-enrolled after signing in.</p>
+                  <button className="btn btn-secondary" style={{ marginTop: 12 }} onClick={handleRegenerateCode} disabled={regenerating}>
+                    {regenerating ? 'Regenerating…' : 'Regenerate Join Code'}
+                  </button>
+                  <p className="cs-hint" style={{ marginTop: 6 }}>This invalidates the old code and link immediately.</p>
+                </div>
+              </div>
+
+              {/* Lock course */}
+              <div className="cs-section">
+                <div className="cs-section-title">Course Access</div>
+                <div className="cs-section-body">
+                  <div className="cs-toggle-row">
+                    <div>
+                      <div className="cs-toggle-label">Lock Course</div>
+                      <div className="cs-toggle-desc">Students can view content but cannot submit new work or join via the invite link.</div>
+                    </div>
+                    <button
+                      className={`cs-toggle${classroom?.is_locked ? ' cs-toggle--on' : ''}`}
+                      onClick={handleToggleLock}
+                      disabled={lockSaving}
+                    >
+                      <span className="cs-toggle-knob" />
+                    </button>
+                  </div>
+                  {classroom?.is_locked && (
+                    <div className="alert alert-error" style={{ marginTop: 10, fontSize: 12 }}>
+                      This course is locked. Students cannot submit new work.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Danger zone */}
+              <div className="cs-section cs-section--danger">
+                <div className="cs-section-title">Danger Zone</div>
+                <div className="cs-section-body">
+                  <div className="cs-danger-row">
+                    <div>
+                      <div className="cs-toggle-label">Delete Course</div>
+                      <div className="cs-toggle-desc">Permanently deletes this course and all its units, personas, quizzes, and student data. This cannot be undone.</div>
+                    </div>
+                    <button className="btn btn-danger" onClick={() => setDeleteConfirmOpen(true)}>Delete</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Delete course confirm */}
+      <Modal isOpen={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} title="Delete Course" size="sm"
+        footer={<ModalActions onCancel={() => setDeleteConfirmOpen(false)} onConfirm={handleDeleteCourse} confirmLabel="Delete Forever" danger loading={deletingCourse} />}>
+        <p style={{ fontSize: 14 }}>Are you sure you want to delete <strong>{classroom?.name}</strong>? All units, student data, and submissions will be permanently removed.</p>
+      </Modal>
 
       {/* ── Modals ── */}
       <Modal isOpen={createOpen} onClose={() => { setCreateOpen(false); setNewUnit({ title: '', context: '', due_date: '' }); setCreateError(''); }} title="Create New Unit" size="md"
