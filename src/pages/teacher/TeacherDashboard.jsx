@@ -8,7 +8,6 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import {
   getClassrooms,
   createClassroom,
-  deleteClassroom,
 } from '../../api/classrooms';
 import { useSettings } from '../../hooks/useSettings';
 import '../../styles/pages.css';
@@ -18,6 +17,20 @@ const DEFAULT_TEACHER_SETTINGS = {
   default_landing: 'dashboard',
   show_course_stats: true,
 };
+
+function CopyButton({ text, style }) {
+  const [copied, setCopied] = useState(false);
+  function handleCopy() {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <button className="btn btn-secondary" style={{ whiteSpace: 'nowrap', fontSize: 12, minWidth: 64, ...style }} onClick={handleCopy}>
+      {copied ? '✓ Copied!' : 'Copy'}
+    </button>
+  );
+}
 
 export default function TeacherDashboard({ user }) {
   const navigate = useNavigate();
@@ -32,9 +45,9 @@ export default function TeacherDashboard({ user }) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
-  // Delete modal
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  // Created modal (join code + link)
+  const [createdClassroom, setCreatedClassroom] = useState(null);
+
   const { settings } = useSettings(DEFAULT_TEACHER_SETTINGS);
   const [showOnboarding, setShowOnboarding] = useState(
     () => localStorage.getItem('epoch_teacher_onboarding') === 'needed'
@@ -94,25 +107,11 @@ export default function TeacherDashboard({ user }) {
       window.dispatchEvent(new CustomEvent('epoch:classrooms-changed'));
       setCreateOpen(false);
       setNewName('');
+      setCreatedClassroom(classroom);
     } catch (err) {
       setCreateError(err.response?.data?.error || 'Failed to create classroom.');
     } finally {
       setCreating(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await deleteClassroom(deleteTarget.id);
-      setClassrooms(c => c.filter(x => x.id !== deleteTarget.id));
-      window.dispatchEvent(new CustomEvent('epoch:classrooms-changed'));
-      setDeleteTarget(null);
-    } catch {
-      // keep modal open, show nothing — simple
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -214,22 +213,13 @@ export default function TeacherDashboard({ user }) {
                       <span className="classroom-card-meta">
                         Created {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          className="btn btn-ghost"
-                          style={{ fontSize: 12, padding: '5px 12px' }}
-                          onClick={e => { e.stopPropagation(); setDeleteTarget(c); }}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          className="btn btn-dark"
-                          style={{ fontSize: 13 }}
-                          onClick={e => { e.stopPropagation(); navigate(`/teacher/classroom/${c.id}`); }}
-                        >
-                          Open →
-                        </button>
-                      </div>
+                      <button
+                        className="btn btn-dark"
+                        style={{ fontSize: 13 }}
+                        onClick={e => { e.stopPropagation(); navigate(`/teacher/classroom/${c.id}`); }}
+                      >
+                        Open →
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -271,31 +261,56 @@ export default function TeacherDashboard({ user }) {
         </p>
       </Modal>
 
+      {/* Created — Join Code Modal */}
+      <Modal
+        isOpen={!!createdClassroom}
+        onClose={() => setCreatedClassroom(null)}
+        title="Classroom Created"
+        size="sm"
+        footer={
+          <div className="modal-actions">
+            <button className="modal-btn modal-btn--primary" onClick={() => setCreatedClassroom(null)}>Done</button>
+          </div>
+        }
+      >
+        {createdClassroom && (() => {
+          const joinLink = `${window.location.origin}/join?code=${createdClassroom.join_code}`;
+          return (
+            <>
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>
+                Share either the join code or the link below with your students.
+              </p>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Join Code</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 28, fontWeight: 700, letterSpacing: '.12em', color: 'var(--ink)' }}>{createdClassroom.join_code}</span>
+                  <CopyButton text={createdClassroom.join_code} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Invite Link</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    readOnly
+                    value={joinLink}
+                    onFocus={e => e.target.select()}
+                    style={{ flex: 1, fontSize: 12, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'monospace' }}
+                  />
+                  <CopyButton text={joinLink} />
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+                  Students who click this link will be automatically enrolled after signing in or creating an account.
+                </p>
+              </div>
+            </>
+          );
+        })()}
+      </Modal>
+
       {showOnboarding && (
         <TeacherOnboarding onDone={() => setShowOnboarding(false)} />
       )}
 
-      {/* Delete Confirm Modal */}
-      <Modal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        title="Delete Classroom"
-        size="sm"
-        footer={
-          <ModalActions
-            onCancel={() => setDeleteTarget(null)}
-            onConfirm={handleDelete}
-            confirmLabel="Delete"
-            danger
-            loading={deleting}
-          />
-        }
-      >
-        <p style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6 }}>
-          Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This will
-          permanently remove all units, notes, personas, and quizzes inside it.
-        </p>
-      </Modal>
     </>
   );
 }

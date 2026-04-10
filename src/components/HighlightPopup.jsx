@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import './HighlightPopup.css';
 
 export default function HighlightPopup({
-  term, position, loading, contextInfo,
+  term, position, loading, loadingAction, contextInfo,
   onLookup, onSave, onAddToGlossary, onClose, isSaved, isAdded, addError,
 }) {
   const popupRef = useRef(null);
@@ -71,7 +71,7 @@ export default function HighlightPopup({
       {loading && (
         <div className="highlight-popup-loading">
           <span className="highlight-popup-spinner" />
-          {hasContext ? 'Looking this up…' : 'Adding to Glossary…'}
+          {loadingAction === 'add' ? 'Adding to Glossary…' : 'Looking this up…'}
         </div>
       )}
 

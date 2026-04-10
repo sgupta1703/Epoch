@@ -78,6 +78,7 @@ router.post('/join', authenticate, requireRole('student'), async (req, res, next
     const { data: classroom, error: findError } = await supabase
       .from('classrooms').select('*').eq('join_code', join_code.toUpperCase()).single();
     if (findError || !classroom) return res.status(404).json({ error: 'Invalid join code' });
+    if (classroom.is_locked) return res.status(403).json({ error: 'This course is currently locked and not accepting new students.' });
     const { data: existing } = await supabase.from('classroom_students').select('classroom_id')
       .eq('classroom_id', classroom.id).eq('student_id', req.user.id).single();
     if (existing) return res.status(409).json({ error: 'Already enrolled in this classroom' });
@@ -360,10 +361,36 @@ router.get('/:id', authenticate, async (req, res, next) => {
 // PATCH /api/classrooms/:id
 router.patch('/:id', authenticate, requireRole('teacher'), async (req, res, next) => {
   try {
-    const { name } = req.body;
-    const { data, error } = await supabase.from('classrooms').update({ name })
+    const updates = {};
+    if (req.body.name      !== undefined) updates.name      = req.body.name;
+    if (req.body.is_locked !== undefined) updates.is_locked = req.body.is_locked;
+    const { data, error } = await supabase.from('classrooms').update(updates)
       .eq('id', req.params.id).eq('teacher_id', req.user.id).select().single();
     if (error || !data) return res.status(404).json({ error: 'Classroom not found' });
+    res.json({ classroom: data });
+  } catch (err) { next(err); }
+});
+
+// POST /api/classrooms/:id/regenerate-code
+router.post('/:id/regenerate-code', authenticate, requireRole('teacher'), async (req, res, next) => {
+  try {
+    const { data: classroom } = await supabase.from('classrooms').select('id')
+      .eq('id', req.params.id).eq('teacher_id', req.user.id).single();
+    if (!classroom) return res.status(403).json({ error: 'Access denied' });
+
+    let join_code, attempts = 0;
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    while (attempts < 10) {
+      const candidate = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      const { data: existing } = await supabase.from('classrooms').select('id').eq('join_code', candidate).single();
+      if (!existing) { join_code = candidate; break; }
+      attempts++;
+    }
+    if (!join_code) return res.status(500).json({ error: 'Failed to generate unique join code' });
+
+    const { data, error } = await supabase.from('classrooms').update({ join_code })
+      .eq('id', req.params.id).select().single();
+    if (error) throw error;
     res.json({ classroom: data });
   } catch (err) { next(err); }
 });

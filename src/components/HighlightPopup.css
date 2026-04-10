@@ -113,6 +113,8 @@
 /* ── Context body ── */
 .highlight-popup-body {
   padding: 12px 14px;
+  max-height: 180px;
+  overflow-y: auto;
 }
 
 .highlight-popup-context {

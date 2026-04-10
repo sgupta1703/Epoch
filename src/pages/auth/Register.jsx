@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register, login, loginWithGoogle, loginWithMicrosoft } from '../../api/auth';
+import { consumePendingJoin } from '../../utils/pendingJoin';
 import { isValidStudentNumber, normalizeStudentNumber } from '../../utils/studentNumber';
 import './Auth.css';
 
@@ -94,8 +95,9 @@ export default function Register({ onLogin }) {
       } else if (user.role === 'student') {
         localStorage.setItem('epoch_student_onboarding', 'needed');
       }
+      const joinedClass = user.role === 'student' ? await consumePendingJoin() : null;
       onLogin(user);
-      navigate(user.role === 'teacher' ? '/teacher' : '/student');
+      navigate(user.role === 'teacher' ? '/teacher' : '/student', { state: joinedClass ? { justJoined: joinedClass } : undefined });
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
     } finally {

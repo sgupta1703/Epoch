@@ -12,6 +12,7 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import AuthCallback from './pages/auth/AuthCallback';
 import GoogleSetup from './pages/auth/GoogleSetup';
+import JoinRedirect from './pages/auth/JoinRedirect';
 import Landing from './Landing';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ClassroomView from './pages/teacher/ClassroomView';
@@ -41,6 +42,7 @@ function RedirectIfAuthed() {
   const { isAuthenticated, role, loading } = useAuth();
   if (loading) return <LoadingSpinner fullPage label="Loading..." />;
   if (isAuthenticated) {
+    if (!role) return <Navigate to="/setup" replace />;
     return (
       <Navigate
         to={role === 'teacher' ? '/teacher' : '/student'}
@@ -55,6 +57,7 @@ function RedirectIfAuthed() {
 function RequireRole({ role: required }) {
   const { role, loading } = useAuth();
   if (loading) return <LoadingSpinner fullPage label="Loading..." />;
+  if (!role) return <Navigate to="/setup" replace />;
   if (role !== required) return <Navigate to={role === 'teacher' ? '/teacher' : '/student'} replace />;
   return <Outlet />;
 }
@@ -104,6 +107,7 @@ function AppRoutes() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
         </Route>
 
+        <Route path="/join" element={<JoinRedirect />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback onLogin={setUser} />} />
 

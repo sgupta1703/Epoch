@@ -85,18 +85,48 @@ function TypingIndicator() {
   );
 }
 
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  function handleCopy() {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <button className="epoch-archivist-join-copy" onClick={handleCopy}>
+      {copied ? '✓ Copied!' : 'Copy'}
+    </button>
+  );
+}
+
 function ActionCard({ message, isNew, onConfirm, onCancel, executing }) {
   const { action, status } = message;
 
   const baseClasses = ['epoch-archivist-bubble', 'epoch-archivist-bubble--assistant', isNew ? 'epoch-archivist-bubble--new' : ''].filter(Boolean).join(' ');
 
   if (status === 'confirmed') {
+    const classroom = message.classroom;
+    const joinLink = classroom ? `${window.location.origin}/join?code=${classroom.join_code}` : null;
     return (
       <div className={baseClasses}>
         <div className="epoch-archivist-bubble-role">Mr. Curator</div>
         <div className="epoch-archivist-bubble-text epoch-archivist-action-result epoch-archivist-action-result--success">
           ✓ {message.resultMessage}
         </div>
+        {classroom && (
+          <div className="epoch-archivist-join-card">
+            <div className="epoch-archivist-join-row">
+              <span className="epoch-archivist-join-label">Join code</span>
+              <span className="epoch-archivist-join-code">{classroom.join_code}</span>
+              <CopyButton text={classroom.join_code} />
+            </div>
+            <div className="epoch-archivist-join-row">
+              <span className="epoch-archivist-join-label">Invite link</span>
+              <span className="epoch-archivist-join-link">{joinLink}</span>
+              <CopyButton text={joinLink} />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -229,8 +259,11 @@ export default function EpochArchivist() {
 
     setExecuting(true);
     try {
-      const { message } = await executeAssistantAction(msg.action);
-      setMessages(current => current.map((m, i) => i === index ? { ...m, status: 'confirmed', resultMessage: message } : m));
+      const result = await executeAssistantAction(msg.action);
+      setMessages(current => current.map((m, i) => i === index
+        ? { ...m, status: 'confirmed', resultMessage: result.message, classroom: result.classroom || null }
+        : m
+      ));
 
       const unitActions = ['create_unit', 'create_multiple_units', 'set_unit_visibility', 'delete_unit', 'delete_multiple_units', 'delete_all_units'];
       const personaActions = ['create_personas', 'create_personas_in_every_unit'];

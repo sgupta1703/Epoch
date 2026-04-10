@@ -15,8 +15,13 @@ export async function createClassroom({ name }) {
   return res.data;
 }
 
-export async function updateClassroom(classroomId, { name }) {
-  const res = await api.patch(`/api/classrooms/${classroomId}`, { name });
+export async function updateClassroom(classroomId, fields) {
+  const res = await api.patch(`/api/classrooms/${classroomId}`, fields);
+  return res.data;
+}
+
+export async function regenerateJoinCode(classroomId) {
+  const res = await api.post(`/api/classrooms/${classroomId}/regenerate-code`);
   return res.data;
 }
 

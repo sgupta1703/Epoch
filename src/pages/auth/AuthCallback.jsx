@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import api from '../../api/axiosInstance';
+import { consumePendingJoin } from '../../utils/pendingJoin';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 export default function AuthCallback({ onLogin }) {
@@ -35,8 +36,9 @@ export default function AuthCallback({ onLogin }) {
           return;
         }
 
+        const joinedClass = user.role === 'student' ? await consumePendingJoin() : null;
         onLogin(user);
-        navigate(user.role === 'teacher' ? '/teacher' : '/student', { replace: true });
+        navigate(user.role === 'teacher' ? '/teacher' : '/student', { replace: true, state: joinedClass ? { justJoined: joinedClass } : undefined });
       } catch {
         const partialUser = {
           id: session.user.id,
