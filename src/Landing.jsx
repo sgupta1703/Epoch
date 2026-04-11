@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Brain, ChartBar, CheckCircle, ChevronRight,
   Clock, Compass, Crown, Drama, Eye, Feather, Globe,
-  GraduationCap, Landmark, Layers, MessageCircle,
+  Landmark, Layers, MessageCircle,
   Mic, NotebookPen, PencilLine, Scroll, Shield,
   Sparkles, Star, Swords, Trophy, Users, Zap,
   CircleCheckBig, CircleArrowRight, Circle,
@@ -48,21 +48,6 @@ function ScatterIcons({ icons, className = '' }) {
   );
 }
 
-const heroIcons = [
-  { icon: Scroll, top: '12%', left: '3%', size: 72, rot: -18, opacity: 0.07 },
-  { icon: Compass, top: '8%', right: '6%', size: 90, rot: 22, opacity: 0.065 },
-  { icon: Crown, top: '60%', left: '2%', size: 55, rot: -8, opacity: 0.06 },
-  { icon: Feather, bottom: '15%', left: '6%', size: 64, rot: 30, opacity: 0.07 },
-  { icon: Shield, top: '30%', right: '4%', size: 60, rot: -14, opacity: 0.055 },
-  { icon: Globe, bottom: '20%', right: '3%', size: 80, rot: 10, opacity: 0.065 },
-  { icon: Star, top: '45%', left: '1%', size: 38, rot: 20, opacity: 0.08 },
-  { icon: BookOpen, top: '75%', right: '8%', size: 50, rot: -22, opacity: 0.06 },
-  { icon: Swords, top: '22%', left: '9%', size: 46, rot: 12, opacity: 0.055 },
-  { icon: Landmark, bottom: '8%', left: '20%', size: 52, rot: -6, opacity: 0.06 },
-  { icon: Trophy, top: '15%', right: '20%', size: 42, rot: 16, opacity: 0.055 },
-  { icon: GraduationCap, bottom: '30%', right: '12%', size: 58, rot: -20, opacity: 0.065 },
-];
-
 const teacherIcons = [
   { icon: BarChart2, top: '5%', right: '2%', size: 80, rot: 15, opacity: 0.07 },
   { icon: Target, bottom: '10%', left: '1%', size: 60, rot: -10, opacity: 0.065 },
@@ -98,15 +83,19 @@ export default function EpochLanding() {
   const [chatVisible, setChatVisible] = useState(false);
   const chatRef = useRef(null);
   const chatStarted = useRef(false);
-  const timers = useRef([]);
+  const cancelDemo = useRef(false);
   const bodyRef = useRef(null);
+  const fwdRef = useRef(null);
+  const revRef = useRef(null);
 
-  const convoMessages = [
-    { from: 'student', text: 'How did you keep the Continental Army together when supplies were so low?' },
-    { from: 'persona', text: 'By reminding the men that hardship was not the exception, but the price of liberty. Discipline, patience, and example mattered as much as muskets.' },
-    { from: 'student', text: 'Did you think the colonies could actually win?' },
-    { from: 'persona', text: 'I believed endurance would decide more than any single battle. If we could remain in the field, the cause of independence would remain alive.' },
+  const demoQuestions = [
+    'How did you keep the Continental Army together when supplies were so low?',
+    'Did you think the colonies could actually win?',
   ];
+
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -118,35 +107,98 @@ export default function EpochLanding() {
   }, []);
 
   useEffect(() => {
+    const fwd = fwdRef.current;
+    const rev = revRef.current;
+    if (!fwd || !rev) return;
+
+    const playReverse = () => {
+      rev.currentTime = 0;
+      fwd.style.opacity = '0';
+      rev.style.opacity = '1';
+      rev.play().catch(() => {});
+    };
+
+    const playForward = () => {
+      fwd.currentTime = 0;
+      rev.style.opacity = '0';
+      fwd.style.opacity = '1';
+      fwd.play().catch(() => {});
+    };
+
+    fwd.addEventListener('ended', playReverse);
+    rev.addEventListener('ended', playForward);
+    return () => {
+      fwd.removeEventListener('ended', playReverse);
+      rev.removeEventListener('ended', playForward);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!chatRef.current) return;
+
+    const runDemo = async () => {
+      const history = [];
+
+      for (const question of demoQuestions) {
+        if (cancelDemo.current) return;
+
+        // Animate student typing
+        await sleep(400);
+        if (cancelDemo.current) return;
+        setStudentComposing(true);
+        setDemoInput('');
+        for (let i = 0; i < question.length; i++) {
+          if (cancelDemo.current) return;
+          await sleep(20);
+          setDemoInput(question.slice(0, i + 1));
+        }
+        await sleep(340);
+        if (cancelDemo.current) return;
+
+        setVisMsg(p => [...p, { from: 'student', text: question }]);
+        setDemoInput('');
+        setStudentComposing(false);
+        history.push({ role: 'user', content: question });
+
+        // Show typing while waiting for AI
+        await sleep(300);
+        if (cancelDemo.current) return;
+        setTyping(true);
+
+        try {
+          const res = await fetch(`${API}/api/demo/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: question, history: history.slice(0, -1) }),
+          });
+          if (cancelDemo.current) return;
+          const data = await res.json();
+          setTyping(false);
+          if (data.reply) {
+            setVisMsg(p => [...p, { from: 'persona', text: data.reply }]);
+            history.push({ role: 'assistant', content: data.reply });
+          }
+        } catch {
+          if (cancelDemo.current) return;
+          setTyping(false);
+        }
+
+        await sleep(500);
+      }
+
+      if (!cancelDemo.current) setDemoReady(true);
+    };
+
     const obs = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !chatStarted.current) {
         chatStarted.current = true;
         setChatVisible(true);
-        let delay = 300;
-        const ts = [];
-        convoMessages.forEach(msg => {
-          if (msg.from === 'persona') {
-            ts.push(setTimeout(() => setTyping(true), delay));
-            delay += 900;
-            ts.push(setTimeout(() => { setTyping(false); setVisMsg(p => [...p, msg]); }, delay));
-          } else {
-            ts.push(setTimeout(() => { setStudentComposing(true); setDemoInput(''); }, delay));
-            const start = delay + 100;
-            msg.text.split('').forEach((_, i) =>
-              ts.push(setTimeout(() => setDemoInput(msg.text.slice(0, i + 1)), start + i * 20))
-            );
-            delay = start + msg.text.length * 20;
-            ts.push(setTimeout(() => { setVisMsg(p => [...p, msg]); setDemoInput(''); setStudentComposing(false); }, delay + 340));
-          }
-          delay += 500;
-        });
-        ts.push(setTimeout(() => setDemoReady(true), delay + 200));
-        timers.current = ts;
+        runDemo();
       }
     }, { threshold: 0.3 });
+
     obs.observe(chatRef.current);
-    return () => { obs.disconnect(); timers.current.forEach(clearTimeout); };
+    return () => { cancelDemo.current = true; obs.disconnect(); };
   }, []);
 
   useEffect(() => {
@@ -174,7 +226,7 @@ export default function EpochLanding() {
 
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/demo/chat`,
+        `${API}/api/demo/chat`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -241,12 +293,12 @@ export default function EpochLanding() {
 
         /* HERO */
         .ep-hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:100px 24px 80px;background:var(--night);position:relative;overflow:hidden}
-        .ep-hero-texture{position:absolute;inset:0;background-image:radial-gradient(circle at 20% 80%,rgba(192,80,31,.12) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(192,80,31,.1) 0%,transparent 45%),radial-gradient(circle at 50% 50%,rgba(100,76,45,.08) 0%,transparent 60%);pointer-events:none}
-        .ep-hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(242,232,217,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(242,232,217,.025) 1px,transparent 1px);background-size:60px 60px;pointer-events:none}
+        .ep-hero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+        .ep-hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(10,8,6,.80) 0%,rgba(10,8,6,.62) 40%,rgba(10,8,6,.82) 100%);z-index:1;pointer-events:none}
         .ep-hero-content{position:relative;z-index:2;max-width:900px}
-        .ep-hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:11px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--rust);margin-bottom:32px;padding:8px 18px;border:1px solid rgba(192,80,31,.3);border-radius:2px}
+        .ep-hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:11px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--rust);margin-bottom:32px;padding:8px 18px;border:1px solid rgba(192,80,31,.35);border-radius:2px;background:rgba(10,8,6,.4);backdrop-filter:blur(4px)}
         .ep-hero-eyebrow-dot{width:5px;height:5px;border-radius:50%;background:var(--rust)}
-        .ep-hero-h1{font-family:var(--serif);font-size:clamp(64px,11vw,150px);font-weight:700;line-height:.88;color:var(--parch);margin-bottom:24px;letter-spacing:-.01em}
+        .ep-hero-h1{font-family:var(--serif);font-size:clamp(64px,11vw,150px);font-weight:700;line-height:.88;color:var(--parch);margin-bottom:24px;letter-spacing:-.01em;text-shadow:0 2px 32px rgba(0,0,0,.5)}
         .ep-hero-h1 em{font-style:italic;color:var(--rust);display:block}
         .ep-hero-rule{width:60px;height:2px;background:var(--rust);margin:0 auto 28px;opacity:.6}
         .ep-hero-sub{font-size:clamp(15px,1.8vw,18px);font-weight:400;line-height:1.8;color:rgba(242,232,217,.82);max-width:520px;margin:0 auto 44px}
@@ -447,15 +499,6 @@ export default function EpochLanding() {
         .ep-step-title{font-size:15px;font-weight:500;color:var(--ink);margin-bottom:4px}
         .ep-step-desc{font-size:13px;font-weight:400;line-height:1.65;color:var(--ink5)}
 
-        /* ── TESTIMONIAL BAND ── */
-        .ep-quotes{padding:80px 0;background:var(--night2);position:relative;overflow:hidden}
-        .ep-quotes-inner{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:rgba(242,232,217,.04)}
-        .ep-quote{padding:44px 36px;background:var(--night2);display:flex;flex-direction:column;gap:18px}
-        .ep-quote-mark{font-family:var(--serif);font-size:48px;font-style:italic;color:var(--rust);line-height:1;opacity:.6}
-        .ep-quote-text{font-family:var(--serif);font-size:17px;font-style:italic;font-weight:400;line-height:1.65;color:rgba(242,232,217,.92)}
-        .ep-quote-author{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
-        .ep-quote-role{font-size:12px;font-weight:400;color:rgba(242,232,217,.35);margin-top:2px}
-
         /* ── CTA ── */
         .ep-cta{padding:140px 24px;background:var(--night);text-align:center;position:relative;overflow:hidden}
         .ep-cta-glow{position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 50%,rgba(192,80,31,.12) 0%,transparent 70%);pointer-events:none}
@@ -480,7 +523,6 @@ export default function EpochLanding() {
           .ep-nav-links{display:none}
           .ep-demo-inner,.ep-teacher-inner,.ep-curric-inner,.ep-student-inner,.ep-curator-inner,.ep-how-inner{grid-template-columns:1fr;gap:48px}
           .ep-feats-inner{grid-template-columns:1fr}
-          .ep-quotes-inner{grid-template-columns:1fr}
           .ep-an-grid{grid-template-columns:1fr}
         }
         @media(max-width:600px){
@@ -508,17 +550,21 @@ export default function EpochLanding() {
 
       {/* ── HERO ── */}
       <section className="ep-hero">
-        <div className="ep-hero-texture" />
-        <div className="ep-hero-grid" />
-        <ScatterIcons icons={heroIcons} />
+        <video ref={fwdRef} autoPlay muted playsInline preload="auto" className="ep-hero-video" style={{opacity:1}}>
+          <source src="https://res.cloudinary.com/dfonotyfb/video/upload/v1775585556/dds3_1_rqhg7x.mp4" type="video/mp4" />
+        </video>
+        <video ref={revRef} muted playsInline preload="auto" className="ep-hero-video" style={{opacity:0}}>
+          <source src="https://res.cloudinary.com/dfonotyfb/video/upload/e_reverse/v1775585556/dds3_1_rqhg7x.mp4" type="video/mp4" />
+        </video>
+        <div className="ep-hero-overlay" />
         <div className="ep-hero-content">
-          <div className="rev">
 
-          </div>
           <h1 className="ep-hero-h1 rev rev-d1">
             Bring the past
             <em>to life.</em>
           </h1>
+          <br />
+          <br />
           <p className="ep-hero-sub rev rev-d2">
             Epoch is an AI education platform where students don't just read about history — they converse with it, question it, and understand it at a level textbooks never reach.
           </p>
@@ -526,6 +572,9 @@ export default function EpochLanding() {
             <button className="btn-rust" onClick={() => navigate('/register')}>Start Teaching &nbsp;→</button>
             <button className="btn-outline-light" onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}>See It in Action</button>
           </div>
+        </div>
+
+        <div className="ep-hero-scroll">
         </div>
 
       </section>
