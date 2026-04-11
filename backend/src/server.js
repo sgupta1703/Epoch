@@ -17,6 +17,7 @@ const studentRoutes     = require('./routes/student');
 const profileRoutes     = require('./routes/profile');
 const glossaryRoutes    = require('./routes/glossary');
 const demoRoutes        = require('./routes/demo');
+const { router: healthRouter, startHealthCheckJob } = require('./routes/health');
 
 const app = express();
 
@@ -78,11 +79,7 @@ app.use('/api/student',    studentRoutes);
 app.use('/api/profile',    profileRoutes);
 app.use('/api/glossary',   glossaryRoutes);
 app.use('/api/demo',       demoRoutes);
-
-app.get('/api/health', (req, res) => {
-  console.log('[health] ok');
-  res.json({ status: 'ok' });
-});
+app.use('/api/health',    healthRouter);
 
 // ── 404 catch-all ─────────────────────────────────────────────
 app.use((req, res) => {
@@ -107,4 +104,5 @@ app.listen(PORT, () => {
   console.log(`[startup] SUPABASE_URL set:        ${!!process.env.SUPABASE_URL}`);
   console.log(`[startup] SERVICE_ROLE_KEY set:    ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`);
   console.log(`[startup] OPENAI_API_KEY set:      ${!!process.env.OPENAI_API_KEY}`);
+  startHealthCheckJob();
 });

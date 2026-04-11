@@ -14,6 +14,9 @@ import AuthCallback from './pages/auth/AuthCallback';
 import GoogleSetup from './pages/auth/GoogleSetup';
 import JoinRedirect from './pages/auth/JoinRedirect';
 import Landing from './Landing';
+import Blog from './pages/Blog';
+import Status from './pages/Status';
+import Subprocessors from './pages/Subprocessors';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ClassroomView from './pages/teacher/ClassroomView';
 import UnitEditor from './pages/teacher/UnitEditor';
@@ -100,6 +103,9 @@ function AppRoutes() {
       <SettingsEffects />
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/status" element={<Status />} />
+        <Route path="/subprocessors" element={<Subprocessors />} />
 
         <Route element={<RedirectIfAuthed />}>
           <Route path="/login" element={<Login onLogin={setUser} />} />

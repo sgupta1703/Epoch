@@ -498,6 +498,7 @@ export default function EpochLanding() {
           <button className="ep-nav-link" onClick={() => document.getElementById('teachers')?.scrollIntoView({ behavior: 'smooth' })}>For Teachers</button>
           <button className="ep-nav-link" onClick={() => document.getElementById('students')?.scrollIntoView({ behavior: 'smooth' })}>For Students</button>
           <button className="ep-nav-link" onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })}>How It Works</button>
+          <button className="ep-nav-link" onClick={() => navigate('/blog')}>Blog</button>
         </div>
         <div className="ep-nav-right">
           <button className="ep-nav-si" onClick={() => navigate('/login')}>Sign In</button>
@@ -936,6 +937,9 @@ export default function EpochLanding() {
           <button className="ep-footer-link" onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}>Demo</button>
           <button className="ep-footer-link" onClick={() => document.getElementById('teachers')?.scrollIntoView({ behavior: 'smooth' })}>For Teachers</button>
           <button className="ep-footer-link" onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })}>How It Works</button>
+          <button className="ep-footer-link" onClick={() => navigate('/blog')}>Blog</button>
+          <button className="ep-footer-link" onClick={() => navigate('/status')}>Status</button>
+          <button className="ep-footer-link" onClick={() => navigate('/subprocessors')}>Subprocessors</button>
         </div>
         <div className="ep-footer-copy">© {new Date().getFullYear()} Epoch. Built for educators.</div>
       </footer>
