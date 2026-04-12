@@ -89,12 +89,18 @@ app.use((req, res) => {
 
 // ── Global error handler ──────────────────────────────────────
 app.use((err, req, res, next) => {
+  const isRecitationBlocked = /RECITATION/i.test(String(err?.message || ''));
+  const status = err.status || (isRecitationBlocked ? 422 : 500);
+  const message = isRecitationBlocked
+    ? 'The AI response was blocked because it was too close to source wording. Try again, shorten the source/context, or rephrase the request.'
+    : err.message || 'Internal server error';
+
   console.error(`[error] ${req.method} ${req.originalUrl}`, {
-    message: err.message,
-    status:  err.status,
+    message,
+    status,
     stack:   err.stack,
   });
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  res.status(status).json({ error: message });
 });
 
 // ── Start ─────────────────────────────────────────────────────
