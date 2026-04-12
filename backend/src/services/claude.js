@@ -1014,22 +1014,38 @@ Return ONLY a valid JSON object with exactly these fields, no markdown, no backt
 }
 
 async function decodeEssayQuestion(question, aiInstruction = '') {
-  const prompt = `You are an AP History expert. Analyze this essay question and return structured guidance for a student who needs to understand what it is asking before they write.
+  const prompt = `You are an AP History expert and writing coach. A student is about to write an essay and needs deep guidance on what this question is actually asking and how to approach it. Give them everything they need to understand the prompt before they write a single word.
 
 Question: "${question}"
 
 Return ONLY valid JSON, no markdown, no backticks:
 {
-  "skill": "<one of: Causation | Comparison | Continuity and Change Over Time | Contextualization | Argumentation>",
-  "period": "<relevant time period or historical context, 2-6 words>",
-  "vocabulary": ["<term1>", "<term2>", "<term3>", "<term4>", "<term5>", "<term6>"],
-  "whatAPWants": ["<specific requirement 1>", "<specific requirement 2>", "<specific requirement 3>"],
-  "commonMistakes": ["<mistake 1>", "<mistake 2>", "<mistake 3>"]
+  "skill": "<one of: Causation | Comparison | Change Over Time | Evaluation | Argumentation | Document Analysis>",
+  "period": "<time period and region, e.g. 'United States, 1865–1900'>",
+  "breakdown": "<2-3 sentences in plain English: what is this question ACTUALLY asking the student to do? Break down every part of the prompt — what is the task, what are the key terms, what must the essay prove?>",
+  "context": "<3-4 sentences of essential historical background the student must know to write this essay well. Include key events, turning points, and relevant historical forces. This is not a summary — it is the contextual knowledge they need.>",
+  "strongArguments": [
+    "<A compelling, specific thesis direction — 1-2 sentences of an argument that would score full points. Should be historically grounded and arguable.>",
+    "<A second strong argument approaching from a different angle.>",
+    "<A third strong argument — perhaps more nuanced or complex.>"
+  ],
+  "keyEvidence": [
+    {"name": "<specific event, person, law, document, or development>", "relevance": "<1 sentence: why this is directly useful for this question>"},
+    {"name": "...", "relevance": "..."},
+    {"name": "...", "relevance": "..."},
+    {"name": "...", "relevance": "..."},
+    {"name": "...", "relevance": "..."}
+  ],
+  "vocabulary": ["<term1>", "<term2>", "<term3>", "<term4>", "<term5>", "<term6>", "<term7>", "<term8>"],
+  "complexityAngles": [
+    "<One way to add complexity — a corroborating argument, a HAPP element, or a counterargument that strengthens the thesis>",
+    "<A second complexity angle>"
+  ],
+  "whatAPWants": ["<specific rubric requirement 1 for this question>", "<requirement 2>", "<requirement 3>"],
+  "commonMistakes": ["<the most common student error on this exact type of question>", "<mistake 2>", "<mistake 3>"]
 }
 
-For vocabulary: 6 specific AP History terms or concepts directly relevant to this question and time period. Terms only, no explanations.
-For whatAPWants: what does a strong response to THIS specific question need? 3 items, specific to the question.
-For commonMistakes: what do students typically get wrong on this exact type of question? 3 items, brief.${settingsBlock(aiInstruction)}`;
+Be specific to this exact question — not generic AP advice. The strongArguments should be real argumentative claims a student could actually use.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
   let raw = extractTrimmedResponseText(result.response, 'Decode essay question');
@@ -1041,37 +1057,90 @@ For commonMistakes: what do students typically get wrong on this exact type of q
 }
 
 async function coachEssayDraft(mode, question, draft, customPrompt = '', aiInstruction = '') {
-  const modeInstructions = {
-    analyze: `Give a structured, comprehensive analysis of this essay draft. Cover thesis quality, evidence specificity, analytical depth, and what is most urgently missing. Be direct and specific — reference the actual text. Format as a brief overall assessment followed by specific points for each area.`,
-    thesis: `Focus only on the thesis. Is it historically defensible? Does it establish a line of reasoning beyond restating the prompt? Does it make a specific claim? Give one clear verdict, then tell the student exactly what to change and why.`,
-    evidence: `Focus only on the evidence. Name what specific evidence is present (events, people, dates, laws). Identify what is vague or missing. Tell the student exactly what named specifics they should add for this question and time period — be concrete.`,
-    rubric: `Map this draft against the AP History rubric point by point: Thesis/Claim (0-1), Contextualization (0-1), Evidence (0-3), Analysis and Reasoning (0-2). For each point: state whether they have earned it, quote or reference the relevant part of their draft, and say exactly what they need to do to earn it if not.`,
+  const draftText = draft || '(no draft yet)';
+  const base = `Essay question: "${question}"\n\nStudent's draft:\n"""${draftText}"""`;
+
+  // Custom: plain text response
+  if (mode === 'custom') {
+    const prompt = `You are a history essay writing coach. Answer this specific question about the student's essay. Be direct and concise — 3-5 sentences max. Reference the actual draft text.
+
+${base}
+
+Student's question: ${customPrompt}${settingsBlock(aiInstruction)}`;
+    const result = await model.generateContent(prompt);
+    const text = extractTrimmedResponseText(result.response, 'Coach custom') || 'Unable to respond. Try again.';
+    return { type: 'custom', data: { text } };
+  }
+
+  const jsonPrompts = {
+    analyze: `${base}
+
+Evaluate this draft against strong essay writing standards. Return ONLY valid JSON, no markdown:
+{
+  "overview": "<2 sentences: direct overall verdict>",
+  "sections": [
+    {"name": "Thesis",           "status": "<strong|ok|weak>", "feedback": "<1 sentence, specific to their actual text>"},
+    {"name": "Evidence",         "status": "<strong|ok|weak>", "feedback": "<1 sentence>"},
+    {"name": "Analysis",         "status": "<strong|ok|weak>", "feedback": "<1 sentence>"},
+    {"name": "Contextualization","status": "<strong|ok|weak>", "feedback": "<1 sentence>"},
+    {"name": "Complexity",       "status": "<strong|ok|weak>", "feedback": "<1 sentence>"}
+  ],
+  "priority": "<the single most urgent fix, 1 sentence>"
+}${settingsBlock(aiInstruction)}`,
+
+    thesis: `${base}
+
+Evaluate only the thesis statement. Return ONLY valid JSON, no markdown:
+{
+  "status": "<strong|ok|weak>",
+  "verdict": "<1 sentence direct verdict>",
+  "strengths": "<what works — or null if there is nothing to praise>",
+  "fix": "<the specific change needed, concrete>",
+  "direction": "<a stronger version or the exact direction to take>"
+}${settingsBlock(aiInstruction)}`,
+
+    evidence: `${base}
+
+Evaluate only the evidence in this draft. Return ONLY valid JSON, no markdown:
+{
+  "verdict": "<1 sentence overall evidence assessment>",
+  "present": [
+    {"text": "<evidence as it appears in the draft>", "strength": "<strong|ok|weak>", "note": "<why, max 5 words>"}
+  ],
+  "missing": ["<specific named evidence to add>", "<specific named evidence to add>"]
+}${settingsBlock(aiInstruction)}`,
+
+    rubric: `${base}
+
+Score this essay draft against a standard history essay rubric. Return ONLY valid JSON, no markdown:
+{
+  "points": [
+    {"name": "Thesis",     "max": 2, "earned": <0-2>, "feedback": "<1 sentence — is there a clear, arguable claim?>"},
+    {"name": "Evidence",   "max": 3, "earned": <0-3>, "feedback": "<1 sentence — are claims supported with specific, named evidence?>"},
+    {"name": "Analysis",   "max": 2, "earned": <0-2>, "feedback": "<1 sentence — is evidence connected to the argument or just described?>"},
+    {"name": "Structure",  "max": 1, "earned": <0-1>, "feedback": "<1 sentence — is the essay organized with clear progression?>"},
+    {"name": "Nuance",     "max": 2, "earned": <0-2>, "feedback": "<1 sentence — does the essay qualify claims, acknowledge complexity, or engage multiple perspectives?>"}
+  ]
+}${settingsBlock(aiInstruction)}`,
   };
 
-  const instruction = mode === 'custom' ? customPrompt : (modeInstructions[mode] || modeInstructions.analyze);
-
-  const prompt = `You are an AP History writing coach. A student has submitted their essay for feedback.
-
-Essay question: "${question}"
-
-Student's draft:
-"""${draft || '(no draft yet — give targeted guidance on how to start this specific essay)'}"""
-
-Your task: ${instruction}
-
-Be direct and specific. Reference the actual text. Do not use generic advice. Do not over-praise weak work.${settingsBlock(aiInstruction)}`;
-
+  const prompt = jsonPrompts[mode] || jsonPrompts.analyze;
   const result = await model.generateContent(prompt);
-  return extractTrimmedResponseText(result.response, 'Coach essay draft') || 'Unable to generate feedback. Try again.';
+  let raw = extractTrimmedResponseText(result.response, `Coach ${mode}`);
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error(`coachEssayDraft(${mode}): no JSON in response`);
+  return { type: mode, data: JSON.parse(raw.slice(start, end + 1)) };
 }
 
 async function rateThesisAttempt(question, thesis, aiInstruction = '') {
-  const prompt = `You are an AP History essay coach evaluating a thesis statement.
+  const prompt = `You are a history essay writing coach evaluating a thesis statement.
 
 Essay question: "${question}"
 Student's thesis: "${thesis || '(empty)'}"
 
-Evaluate against AP standards: Does it make a historically defensible claim? Does it go beyond restating the question? Does it establish a clear line of reasoning?
+Evaluate: Does it make a clear, arguable claim? Does it go beyond restating the question? Does it establish a position that can be defended with evidence?
 
 Return ONLY valid JSON, no markdown:
 {"status": "<strong|ok|weak>", "feedback": "<one specific sentence — what works or exactly what to change>"}${settingsBlock(aiInstruction)}`;
@@ -1086,14 +1155,14 @@ Return ONLY valid JSON, no markdown:
 }
 
 async function organizeEvidenceVault(question, evidence, aiInstruction = '') {
-  const prompt = `You are an AP History coach helping a student organize their brainstormed evidence.
+  const prompt = `You are a history essay writing coach helping a student organize their brainstormed evidence.
 
 Essay question: "${question}"
 
 Student's braindump:
 """${evidence}"""
 
-Parse every distinct piece of evidence the student mentioned. Organize into AP History categories (Political, Economic, Social, Cultural, Military, Diplomatic — only include categories that have items). For each item:
+Parse every distinct piece of evidence the student mentioned. Organize into thematic categories relevant to this question (e.g. Political, Economic, Social, Cultural, Military, Intellectual — only include categories that actually have items). For each item:
 - Extract the specific piece of evidence as the student wrote it (fix typos but keep their words)
 - Rate its strength: "strong" (specific, named, directly relevant), "ok" (somewhat specific, could be stronger), "weak" (vague, general, or off-topic)
 - Give a brief note on why (max 6 words)
@@ -1120,7 +1189,7 @@ Return ONLY valid JSON, no markdown:
 }
 
 async function generateCounterarguments(question, thesis, aiInstruction = '') {
-  const prompt = `You are an AP History coach. Generate 3 distinct, historically grounded counterarguments to this student's thesis. Each should challenge a different aspect of their argument and reference a real historical perspective, event, or interpretation.
+  const prompt = `You are a history essay writing coach. Generate 3 distinct, well-grounded counterarguments to this student's thesis. Each should challenge a different aspect of their argument and reference a real historical perspective, event, or interpretation.
 
 Essay question: "${question}"
 Student's thesis: "${thesis}"
@@ -1144,14 +1213,14 @@ Return ONLY valid JSON, no markdown:
 }
 
 async function evaluateCounterRebuttal(question, thesis, counterargument, rebuttal, aiInstruction = '') {
-  const prompt = `You are an AP History coach evaluating how well a student rebuts a counterargument.
+  const prompt = `You are a history essay writing coach evaluating how well a student rebuts a counterargument.
 
 Essay question: "${question}"
 Student's thesis: "${thesis}"
 Counterargument: "${counterargument}"
 Student's rebuttal: "${rebuttal || '(empty)'}"
 
-Does the rebuttal effectively address the counterargument? Is it historically specific? Does it strengthen rather than just deny?
+Does the rebuttal effectively address the counterargument? Is it specific and evidence-based? Does it strengthen rather than just deny?
 
 Return ONLY valid JSON, no markdown:
 {"status": "<strong|ok|weak>", "feedback": "<one direct sentence on how effective the rebuttal is and what to improve>"}${settingsBlock(aiInstruction)}`;
@@ -1166,7 +1235,7 @@ Return ONLY valid JSON, no markdown:
 }
 
 async function evaluateEssayOutline(question, outline, aiInstruction = '') {
-  const prompt = `You are an AP History essay coach evaluating a student's essay outline before they write. Be honest and direct — vague outlines produce weak essays.
+  const prompt = `You are a history essay writing coach evaluating a student's essay outline before they write. Be honest and direct — vague outlines produce weak essays.
 
 Essay question: "${question}"
 
@@ -1177,11 +1246,11 @@ Student's outline:
 - Analysis: ${outline.analysis || '(empty)'}
 - Counterclaim: ${outline.counterclaim || '(empty)'}
 
-Evaluate each field against AP rubric standards:
-- THESIS: Does it make a historically defensible, specific claim that goes beyond restating the question? Vague = weak.
-- EVIDENCE: Is each piece specific — a named event, law, person, or date? "Many people suffered" = weak. Named specifics = strong.
+Evaluate each field against strong essay writing standards:
+- THESIS: Does it make a specific, arguable claim that goes beyond restating the question? Vague = weak.
+- EVIDENCE: Is each piece specific — a named event, person, law, or development? "Many people suffered" = weak. Named specifics = strong.
 - ANALYSIS: Does the student explain how evidence proves the thesis? Stating facts without connecting them = weak.
-- COUNTERCLAIM: Does the student name a real opposing argument? "Some people disagreed" = weak. Specific historical viewpoint = strong.
+- COUNTERCLAIM: Does the student name a real opposing argument? "Some people disagreed" = weak. Specific opposing perspective = strong.
 
 If a field is empty: mark it weak and tell the student exactly what to write for this question.
 
