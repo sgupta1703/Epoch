@@ -281,14 +281,6 @@ export default function Blog() {
                 </div>
               </div>
               <div className="ep-blog-feat-deco" aria-hidden="true">
-                <svg width="100%" height="100%" viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="160" cy="110" r="90" stroke="rgba(192,80,31,.12)" strokeWidth="1"/>
-                  <circle cx="160" cy="110" r="60" stroke="rgba(192,80,31,.1)" strokeWidth="1"/>
-                  <circle cx="160" cy="110" r="30" stroke="rgba(192,80,31,.15)" strokeWidth="1"/>
-                  <line x1="70" y1="110" x2="250" y2="110" stroke="rgba(192,80,31,.08)" strokeWidth="1"/>
-                  <line x1="160" y1="20" x2="160" y2="200" stroke="rgba(192,80,31,.08)" strokeWidth="1"/>
-                  <text x="160" y="118" textAnchor="middle" fontFamily="Georgia,serif" fontSize="48" fontStyle="italic" fontWeight="700" fill="rgba(192,80,31,.18)">G</text>
-                </svg>
               </div>
             </div>
           </div>

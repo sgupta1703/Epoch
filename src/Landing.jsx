@@ -93,6 +93,16 @@ export default function EpochLanding() {
     'Did you think the colonies could actually win?',
   ];
 
+  const demoPersona = {
+    name: 'George Washington',
+    badge: 'Revolutionary War · 1776',
+    role: 'United States · Commander in Chief · 1776',
+    sourceNote: 'Source-grounded persona demo',
+    askLabel: 'Ask George Washington',
+    placeholder: 'Ask about morale, strategy, or independence...',
+    initials: 'GW',
+  };
+
   const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -341,9 +351,12 @@ export default function EpochLanding() {
         .ep-chat-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pdot 2s ease-in-out infinite}
         @keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.2;transform:scale(.5)}}
         .ep-chat-ident{display:flex;align-items:center;gap:14px;padding:18px 18px 0}
-        .ep-chat-av{width:48px;height:48px;border-radius:8px;background:var(--rust-xl);border:1px solid rgba(192,80,31,.25);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:22px;font-style:italic;color:var(--rust);flex-shrink:0}
+        .ep-chat-av{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,rgba(192,80,31,.12),rgba(192,80,31,.03));border:1px solid rgba(192,80,31,.25);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:18px;font-weight:700;letter-spacing:.08em;color:var(--rust);flex-shrink:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
+        .ep-chat-persona{display:flex;flex-direction:column;gap:4px;min-width:0}
         .ep-chat-name{font-family:var(--serif);font-size:18px;font-weight:700;color:var(--ink)}
         .ep-chat-era{font-size:11px;color:var(--ink5);margin-top:3px}
+        .ep-chat-source{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--rust)}
+        .ep-chat-source::before{content:'';width:6px;height:6px;border-radius:50%;background:rgba(192,80,31,.6)}
         .ep-chat-body{padding:14px 18px 16px;height:260px;overflow-y:scroll;display:flex;flex-direction:column;gap:8px}
         .ep-chat-body::-webkit-scrollbar{width:3px}.ep-chat-body::-webkit-scrollbar-thumb{background:var(--rust);border-radius:2px}
         .bub{padding:10px 14px;font-size:13px;font-weight:400;line-height:1.65;max-width:84%;animation:fadeIn .22s ease both}
@@ -641,14 +654,15 @@ export default function EpochLanding() {
               </div>
             <div ref={chatRef} className={`ep-chat rev${chatVisible ? ' vis' : ''} rev-d1${demoReady ? ' live' : ''}`}>
               <div className="ep-chat-top">
-                <span className="ep-chat-badge"><BookOpen size={12} strokeWidth={1.8} /> &nbsp;Revolutionary War · 1776</span>
+                <span className="ep-chat-badge"><BookOpen size={12} strokeWidth={1.8} /> &nbsp;{demoPersona.badge}</span>
                 <span className="ep-chat-live"><span className="ep-chat-dot" />Live</span>
               </div>
               <div className="ep-chat-ident">
-                <div className="ep-chat-av">G</div>
-                <div>
-                  <div className="ep-chat-name">George Washington</div>
-                  <div className="ep-chat-era">United States · Commander in Chief · 1776</div>
+                <div className="ep-chat-av">{demoPersona.initials}</div>
+                <div className="ep-chat-persona">
+                  <div className="ep-chat-name">{demoPersona.name}</div>
+                  <div className="ep-chat-source">{demoPersona.sourceNote}</div>
+                  <div className="ep-chat-era">{demoPersona.role}</div>
                 </div>
               </div>
               <div className="ep-chat-body" ref={bodyRef}>
@@ -664,16 +678,16 @@ export default function EpochLanding() {
                 )}
               </div>
               <div className="ep-chat-foot">
-<form className={`ep-compose${studentComposing ? ' animating' : demoReady ? ' ready' : ''}`} onSubmit={handleSend}>
+                <form className={`ep-compose${studentComposing ? ' animating' : demoReady ? ' ready' : ''}`} onSubmit={handleSend}>
                   <div className="ep-compose-field">
-                    <div className="ep-compose-label">Ask George Washington</div>
+                    <div className="ep-compose-label">{demoPersona.askLabel}</div>
                     <textarea
                       className="ep-compose-input"
                       rows={2}
                       value={demoInput}
                       onChange={e => setDemoInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                      placeholder="Ask about morale, strategy, independence…"
+                      placeholder={demoPersona.placeholder}
                       readOnly={studentComposing}
                       disabled={!demoReady && !studentComposing || typing || demoReplying}
                     />
@@ -971,7 +985,6 @@ export default function EpochLanding() {
             Ready to teach{' '}
             <em>differently?</em>
           </h2>
-          <p className="ep-cta-sub rev rev-d2">Set up your first classroom in under five minutes.</p>
           <div className="ep-cta-btns rev rev-d3">
             <button className="btn-rust" onClick={() => navigate('/register')}>Create Your Classroom</button>
             <button className="btn-outline-light" onClick={() => navigate('/login')}>Sign In</button>

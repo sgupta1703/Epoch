@@ -3,8 +3,69 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
+const BLOCKED_FINISH_REASONS = new Set([
+  'RECITATION',
+  'SAFETY',
+  'BLOCKLIST',
+  'PROHIBITED_CONTENT',
+  'SPII',
+]);
+
+function originalityBlock() {
+  return `Originality Rules:
+- Use fresh wording and synthesis rather than stock textbook phrasing.
+- Do not quote, closely imitate, or reproduce source passages, speeches, letters, articles, or study guides unless the user explicitly asks for a short quote.
+- If a famous line or source matters, paraphrase it in your own words and keep the response original.`;
+}
+
 function settingsBlock(instruction) {
-  return instruction ? `\n\nAI Preference Instructions:\n${instruction}` : '';
+  const blocks = [originalityBlock()];
+  if (instruction) blocks.push(`AI Preference Instructions:\n${instruction}`);
+  return `\n\n${blocks.join('\n\n')}`;
+}
+
+function buildBlockedModelError(label, reason) {
+  const error = new Error(
+    reason === 'RECITATION'
+      ? `${label} was blocked because the model started echoing source-style wording too closely. Try again, shorten the source/context, or rephrase the request.`
+      : `${label} could not be completed because the model response was blocked. Please try again.`
+  );
+  error.status = 422;
+  error.code = reason || 'MODEL_RESPONSE_BLOCKED';
+  return error;
+}
+
+function getFinishReason(response) {
+  const candidates = Array.isArray(response?.candidates) ? response.candidates : [];
+  return candidates.find((candidate) => candidate?.finishReason)?.finishReason || '';
+}
+
+function extractResponseText(response, label) {
+  if (!response) {
+    const error = new Error(`${label} failed because the AI service returned no response.`);
+    error.status = 502;
+    throw error;
+  }
+
+  const finishReason = getFinishReason(response);
+  if (BLOCKED_FINISH_REASONS.has(finishReason)) {
+    throw buildBlockedModelError(label, finishReason);
+  }
+
+  try {
+    return response.text();
+  } catch (err) {
+    const message = String(err?.message || '');
+    const reason = /RECITATION/i.test(message) ? 'RECITATION' : finishReason;
+    if (reason) {
+      throw buildBlockedModelError(label, reason);
+    }
+    throw err;
+  }
+}
+
+function extractTrimmedResponseText(response, label) {
+  return extractResponseText(response, label).trim();
 }
 
 async function generateNotes(title, context, aiInstruction = '') {
@@ -67,7 +128,7 @@ Include 10–14 terms covering the most important ideas, systems, policies, and 
 Then: 5–7 bullet points on specific lasting impacts, each 2–3 sentences.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  return result.response.text();
+  return extractResponseText(result.response, 'Notes generation');
 }
 
 async function chatWithEpochAssistant(messages, classrooms = [], units = [], aiInstruction = '') {
@@ -348,7 +409,7 @@ Today's date: ${today}${settingsBlock(aiInstruction)}`,
   if (functionCall) {
     return { type: 'action', name: functionCall.name, args: functionCall.args };
   }
-  return { type: 'text', content: response.text() };
+  return { type: 'text', content: extractResponseText(response, 'Assistant response') };
 }
 
 async function chatWithPersona(persona, unitContext, messages, aiInstruction = '') {
@@ -408,7 +469,7 @@ Instructions:
   }).startChat({ history });
 
   const result = await chat.sendMessage(lastMessage);
-  return result.response.text();
+  return extractResponseText(result.response, 'Persona response');
 }
 
 async function chatWithGeorgeWashington(messages, aiInstruction = '') {
@@ -467,7 +528,7 @@ Educational intent:
   }).startChat({ history });
 
   const result = await chat.sendMessage(lastMessage.content);
-  return result.response.text().trim() || 'I would answer you plainly, if you put the question again.';
+  return extractTrimmedResponseText(result.response, 'George Washington response') || 'I would answer you plainly, if you put the question again.';
 }
 
 function trimPromptText(text, maxChars = 14000) {
@@ -561,7 +622,7 @@ Response style:
   }).startChat({ history });
 
   const result = await chat.sendMessage(lastMessage.content);
-  return result.response.text().trim() || 'I can help you study this unit, review the notes, or prep for a persona conversation.';
+  return extractTrimmedResponseText(result.response, 'Unit copilot response') || 'I can help you study this unit, review the notes, or prep for a persona conversation.';
 }
 
 async function generateStudentDashboardPriorities(studentName, items, classrooms, aiInstruction = '') {
@@ -623,7 +684,7 @@ Rules:
 - Include 2 to 4 items in priority_items.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Student dashboard briefing');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
 
   const start = raw.indexOf('{');
@@ -651,7 +712,7 @@ Return ONLY a valid JSON array. No explanation, no markdown, no backticks. Each 
 Mix multiple choice and short answer questions. Make them actually hard for high school students. DO not make them superly easy but also not tricky at the same time.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Quiz generation');
 
   raw = raw
     .replace(/^```json\s*/i, '')
@@ -684,7 +745,7 @@ Return ONLY a valid JSON object with exactly these two fields, no markdown, no e
 {"score": <number 0-100>, "feedback": "<one sentence of constructive feedback>"}${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Short-answer grading');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
@@ -736,7 +797,7 @@ Return ONLY a valid JSON object with exactly these fields, no markdown, no backt
 }${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Essay grading');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
@@ -802,7 +863,7 @@ Write a teacher-facing analysis. Return ONLY a valid JSON object with exactly th
 Be specific to the actual questions and answers — reference real content from the quiz, not generic feedback.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Performance analysis');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
   return JSON.parse(raw);
 }
@@ -845,7 +906,7 @@ Guidelines:
 - Essay correct_answer must describe: the thesis expected, which specific evidence from the source(s) to cite, and the depth of analysis required.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Assignment generation');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
 
   const start = raw.indexOf('{');
@@ -895,7 +956,7 @@ Rules:
 - Titles should be punchy and memorable.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Timeline generation');
   raw = raw
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
@@ -944,11 +1005,163 @@ Return ONLY a valid JSON object with exactly these fields, no markdown, no backt
 }`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Class performance analysis');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
   if (start === -1 || end === -1) throw new Error(`analyzeClassPerformance: no JSON object in response`);
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+async function decodeEssayQuestion(question, aiInstruction = '') {
+  const prompt = `You are an AP History expert. Analyze this essay question and return structured guidance for a student who needs to understand what it is asking before they write.
+
+Question: "${question}"
+
+Return ONLY valid JSON, no markdown, no backticks:
+{
+  "skill": "<one of: Causation | Comparison | Continuity and Change Over Time | Contextualization | Argumentation>",
+  "period": "<relevant time period or historical context, 2-6 words>",
+  "vocabulary": ["<term1>", "<term2>", "<term3>", "<term4>", "<term5>", "<term6>"],
+  "whatAPWants": ["<specific requirement 1>", "<specific requirement 2>", "<specific requirement 3>"],
+  "commonMistakes": ["<mistake 1>", "<mistake 2>", "<mistake 3>"]
+}
+
+For vocabulary: 6 specific AP History terms or concepts directly relevant to this question and time period. Terms only, no explanations.
+For whatAPWants: what does a strong response to THIS specific question need? 3 items, specific to the question.
+For commonMistakes: what do students typically get wrong on this exact type of question? 3 items, brief.${settingsBlock(aiInstruction)}`;
+
+  const result = await model.generateContent(prompt);
+  let raw = extractTrimmedResponseText(result.response, 'Decode essay question');
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('decodeEssayQuestion: no JSON in response');
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+async function coachEssayDraft(mode, question, draft, customPrompt = '', aiInstruction = '') {
+  const modeInstructions = {
+    analyze: `Give a structured, comprehensive analysis of this essay draft. Cover thesis quality, evidence specificity, analytical depth, and what is most urgently missing. Be direct and specific — reference the actual text. Format as a brief overall assessment followed by specific points for each area.`,
+    thesis: `Focus only on the thesis. Is it historically defensible? Does it establish a line of reasoning beyond restating the prompt? Does it make a specific claim? Give one clear verdict, then tell the student exactly what to change and why.`,
+    evidence: `Focus only on the evidence. Name what specific evidence is present (events, people, dates, laws). Identify what is vague or missing. Tell the student exactly what named specifics they should add for this question and time period — be concrete.`,
+    rubric: `Map this draft against the AP History rubric point by point: Thesis/Claim (0-1), Contextualization (0-1), Evidence (0-3), Analysis and Reasoning (0-2). For each point: state whether they have earned it, quote or reference the relevant part of their draft, and say exactly what they need to do to earn it if not.`,
+  };
+
+  const instruction = mode === 'custom' ? customPrompt : (modeInstructions[mode] || modeInstructions.analyze);
+
+  const prompt = `You are an AP History writing coach. A student has submitted their essay for feedback.
+
+Essay question: "${question}"
+
+Student's draft:
+"""${draft || '(no draft yet — give targeted guidance on how to start this specific essay)'}"""
+
+Your task: ${instruction}
+
+Be direct and specific. Reference the actual text. Do not use generic advice. Do not over-praise weak work.${settingsBlock(aiInstruction)}`;
+
+  const result = await model.generateContent(prompt);
+  return extractTrimmedResponseText(result.response, 'Coach essay draft') || 'Unable to generate feedback. Try again.';
+}
+
+async function rateThesisAttempt(question, thesis, aiInstruction = '') {
+  const prompt = `You are an AP History essay coach evaluating a thesis statement.
+
+Essay question: "${question}"
+Student's thesis: "${thesis || '(empty)'}"
+
+Evaluate against AP standards: Does it make a historically defensible claim? Does it go beyond restating the question? Does it establish a clear line of reasoning?
+
+Return ONLY valid JSON, no markdown:
+{"status": "<strong|ok|weak>", "feedback": "<one specific sentence — what works or exactly what to change>"}${settingsBlock(aiInstruction)}`;
+
+  const result = await model.generateContent(prompt);
+  let raw = extractTrimmedResponseText(result.response, 'Rate thesis attempt');
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('rateThesisAttempt: no JSON in response');
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+async function organizeEvidenceVault(question, evidence, aiInstruction = '') {
+  const prompt = `You are an AP History coach helping a student organize their brainstormed evidence.
+
+Essay question: "${question}"
+
+Student's braindump:
+"""${evidence}"""
+
+Parse every distinct piece of evidence the student mentioned. Organize into AP History categories (Political, Economic, Social, Cultural, Military, Diplomatic — only include categories that have items). For each item:
+- Extract the specific piece of evidence as the student wrote it (fix typos but keep their words)
+- Rate its strength: "strong" (specific, named, directly relevant), "ok" (somewhat specific, could be stronger), "weak" (vague, general, or off-topic)
+- Give a brief note on why (max 6 words)
+
+Return ONLY valid JSON, no markdown:
+{
+  "categories": [
+    {
+      "name": "<category name>",
+      "items": [
+        {"text": "<evidence as written>", "strength": "<strong|ok|weak>", "note": "<why, max 6 words>"}
+      ]
+    }
+  ]
+}${settingsBlock(aiInstruction)}`;
+
+  const result = await model.generateContent(prompt);
+  let raw = extractTrimmedResponseText(result.response, 'Organize evidence vault');
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('organizeEvidenceVault: no JSON in response');
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+async function generateCounterarguments(question, thesis, aiInstruction = '') {
+  const prompt = `You are an AP History coach. Generate 3 distinct, historically grounded counterarguments to this student's thesis. Each should challenge a different aspect of their argument and reference a real historical perspective, event, or interpretation.
+
+Essay question: "${question}"
+Student's thesis: "${thesis}"
+
+Return ONLY valid JSON, no markdown:
+{
+  "counterarguments": [
+    "<counterargument 1 — 1-2 sentences, historically specific>",
+    "<counterargument 2 — 1-2 sentences, historically specific>",
+    "<counterargument 3 — 1-2 sentences, historically specific>"
+  ]
+}${settingsBlock(aiInstruction)}`;
+
+  const result = await model.generateContent(prompt);
+  let raw = extractTrimmedResponseText(result.response, 'Generate counterarguments');
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('generateCounterarguments: no JSON in response');
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+async function evaluateCounterRebuttal(question, thesis, counterargument, rebuttal, aiInstruction = '') {
+  const prompt = `You are an AP History coach evaluating how well a student rebuts a counterargument.
+
+Essay question: "${question}"
+Student's thesis: "${thesis}"
+Counterargument: "${counterargument}"
+Student's rebuttal: "${rebuttal || '(empty)'}"
+
+Does the rebuttal effectively address the counterargument? Is it historically specific? Does it strengthen rather than just deny?
+
+Return ONLY valid JSON, no markdown:
+{"status": "<strong|ok|weak>", "feedback": "<one direct sentence on how effective the rebuttal is and what to improve>"}${settingsBlock(aiInstruction)}`;
+
+  const result = await model.generateContent(prompt);
+  let raw = extractTrimmedResponseText(result.response, 'Evaluate rebuttal');
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('evaluateCounterRebuttal: no JSON in response');
   return JSON.parse(raw.slice(start, end + 1));
 }
 
@@ -982,7 +1195,7 @@ Return ONLY a valid JSON object with exactly these fields, no markdown, no backt
 }.${settingsBlock(aiInstruction)}`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Essay outline evaluation');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
@@ -1020,7 +1233,7 @@ How to coach:
   }).startChat({ history });
 
   const result = await chat.sendMessage(lastMessage);
-  return result.response.text().trim() || 'Sorry, I had trouble responding. Try again.';
+  return extractTrimmedResponseText(result.response, 'Essay guide response') || 'Sorry, I had trouble responding. Try again.';
 }
 
 async function evaluateMissionCompletion(missions, messages) {
@@ -1050,7 +1263,7 @@ Return ONLY a valid JSON array of the IDs of missions that are complete. No expl
 If none are complete, return: []`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Mission evaluation');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
   const start = raw.indexOf('[');
   const end   = raw.lastIndexOf(']');
@@ -1086,7 +1299,7 @@ Return ONLY a valid JSON array. No explanation, no markdown, no backticks:
 ]`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Mission generation');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
   const start = raw.indexOf('[');
   const end = raw.lastIndexOf(']');
@@ -1130,7 +1343,7 @@ Return ONLY a valid JSON array. No explanation, no markdown, no backticks. Each 
 [...]`;
 
   const result = await model.generateContent(prompt);
-  let raw = result.response.text().trim();
+  let raw = extractTrimmedResponseText(result.response, 'Persona quiz generation');
   raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
   const start = raw.indexOf('[');
   const end = raw.lastIndexOf(']');
@@ -1167,7 +1380,7 @@ In 2–4 sentences, explain what "${term}" means or refers to:
 Do not start with "I" or refer to yourself. Give the explanation directly.`;
 
   const result = await model.generateContent(prompt);
-  return result.response.text().trim();
+  return extractTrimmedResponseText(result.response, 'Glossary lookup');
 }
 
 module.exports = {
@@ -1186,6 +1399,12 @@ module.exports = {
   generateStudentDashboardPriorities,
   evaluateEssayOutline,
   chatWithEssayGuide,
+  decodeEssayQuestion,
+  coachEssayDraft,
+  rateThesisAttempt,
+  organizeEvidenceVault,
+  generateCounterarguments,
+  evaluateCounterRebuttal,
   generatePersonaMissions,
   generatePersonaQuizQuestions,
   evaluateMissionCompletion,

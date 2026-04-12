@@ -8,6 +8,12 @@ const {
   chatWithEssayGuide,
   chatWithGeorgeWashington,
   chatWithStudentUnitCopilot,
+  decodeEssayQuestion,
+  coachEssayDraft,
+  rateThesisAttempt,
+  organizeEvidenceVault,
+  generateCounterarguments,
+  evaluateCounterRebuttal,
 } = require('../services/claude');
 const { getUserSettings, buildTeacherAiInstruction, buildStudentAiInstruction } = require('../services/userSettings');
 
@@ -159,6 +165,81 @@ router.post('/essay-guide/chat', authenticate, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+router.post('/essay-guide/decode', authenticate, async (req, res, next) => {
+  try {
+    const { question } = req.body;
+    if (!question?.trim()) return res.status(400).json({ error: 'question is required' });
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const result = await decodeEssayQuestion(question.trim(), buildAiInstructionForUser(req.user.role, settings));
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+router.post('/essay-guide/coach', authenticate, async (req, res, next) => {
+  try {
+    const { question, draft, mode, customPrompt } = req.body;
+    if (!question?.trim()) return res.status(400).json({ error: 'question is required' });
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const result = await coachEssayDraft(
+      mode || 'analyze',
+      question.trim(),
+      draft || '',
+      customPrompt || '',
+      buildAiInstructionForUser(req.user.role, settings),
+    );
+    res.json({ response: result });
+  } catch (err) { next(err); }
+});
+
+router.post('/essay-guide/practice/thesis', authenticate, async (req, res, next) => {
+  try {
+    const { question, thesis } = req.body;
+    if (!question?.trim()) return res.status(400).json({ error: 'question is required' });
+    if (!thesis?.trim()) return res.status(400).json({ error: 'thesis is required' });
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const result = await rateThesisAttempt(question.trim(), thesis.trim(), buildAiInstructionForUser(req.user.role, settings));
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+router.post('/essay-guide/practice/evidence', authenticate, async (req, res, next) => {
+  try {
+    const { question, evidence } = req.body;
+    if (!question?.trim()) return res.status(400).json({ error: 'question is required' });
+    if (!evidence?.trim()) return res.status(400).json({ error: 'evidence is required' });
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const result = await organizeEvidenceVault(question.trim(), evidence.trim(), buildAiInstructionForUser(req.user.role, settings));
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+router.post('/essay-guide/practice/counter', authenticate, async (req, res, next) => {
+  try {
+    const { question, thesis } = req.body;
+    if (!question?.trim()) return res.status(400).json({ error: 'question is required' });
+    if (!thesis?.trim()) return res.status(400).json({ error: 'thesis is required' });
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const result = await generateCounterarguments(question.trim(), thesis.trim(), buildAiInstructionForUser(req.user.role, settings));
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+router.post('/essay-guide/practice/rebuttal', authenticate, async (req, res, next) => {
+  try {
+    const { question, thesis, counterargument, rebuttal } = req.body;
+    if (!question?.trim()) return res.status(400).json({ error: 'question is required' });
+    const settings = await getUserSettings(req.user.id, req.user.role);
+    const result = await evaluateCounterRebuttal(
+      question.trim(),
+      thesis || '',
+      counterargument || '',
+      rebuttal || '',
+      buildAiInstructionForUser(req.user.role, settings),
+    );
+    res.json(result);
+  } catch (err) { next(err); }
 });
 
 router.post('/landing/george-washington', async (req, res, next) => {
