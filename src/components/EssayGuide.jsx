@@ -1477,15 +1477,19 @@ export default function EssayGuide({ isOpen, onClose, question, essayDraft }) {
   }
 
   function renderEvidenceWorkshop() {
+    const allItems = (evidenceResult?.categories || []).flatMap(c => c.items || []);
+    const counts = { strong: 0, ok: 0, weak: 0 };
+    allItems.forEach(item => { if (item.strength in counts) counts[item.strength]++; });
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-          Write down everything you remember about this topic — events, people, dates, laws. Don't filter yourself.
+          Brain-dump every piece of evidence you remember — events, people, dates, laws. The guide sorts and rates it for you.
         </p>
 
         <ScanOverlay loading={organizing}>
           <textarea value={evidenceDraft} onChange={e => setEvidenceDraft(e.target.value)}
-            placeholder="Brain-dump everything you know… e.g. Sherman Antitrust Act, Carnegie Steel, Pullman Strike 1894, laissez-faire policy…"
+            placeholder="e.g. Sherman Antitrust Act, Carnegie Steel, Pullman Strike 1894, laissez-faire policy…"
             rows={5}
             style={{ width: '100%', fontSize: 13, padding: '11px 13px', boxSizing: 'border-box', border: '1px solid var(--border)', borderRadius: 7, resize: 'vertical', lineHeight: 1.55, fontFamily: 'var(--font-body)', outline: 'none' }} />
         </ScanOverlay>
@@ -1496,26 +1500,78 @@ export default function EssayGuide({ isOpen, onClose, question, essayDraft }) {
         </RippleButton>
 
         {organizing && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            {[1,2,3].map(i => <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}><ShimmerBlock lines={3} /></div>)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[4, 3, 2].map((lines, i) => (
+              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ height: 32, background: '#f4f4f4', borderBottom: '1px solid var(--border)' }} />
+                <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <ShimmerBlock lines={lines} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
         {evidenceResult && !evidenceResult.error && (
-          <div key={evidenceKey} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+          <div key={evidenceKey} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Summary strip */}
+            {allItems.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', paddingBottom: 4 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                  {allItems.length} piece{allItems.length !== 1 ? 's' : ''} of evidence
+                </span>
+                {counts.strong > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#166534', background: '#eaf6ea', padding: '2px 9px', borderRadius: 20 }}>
+                    {counts.strong} strong
+                  </span>
+                )}
+                {counts.ok > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#92400e', background: '#fef9ec', padding: '2px 9px', borderRadius: 20 }}>
+                    {counts.ok} okay
+                  </span>
+                )}
+                {counts.weak > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#991b1b', background: '#fdecea', padding: '2px 9px', borderRadius: 20 }}>
+                    {counts.weak} need work
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Category sections */}
             {(evidenceResult.categories || []).map((cat, ci) => (
-              <div key={cat.name} style={{ animation: `eg-categoryIn 0.34s cubic-bezier(0.34,1.56,0.64,1) ${ci * 0.1}s both` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7 }}>{cat.name}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div key={cat.name} style={{
+                border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
+                animation: `eg-categoryIn 0.34s cubic-bezier(0.34,1.56,0.64,1) ${ci * 0.08}s both`,
+              }}>
+                {/* Category header */}
+                <div style={{ padding: '7px 13px', background: '#f7f7f7', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{cat.name}</span>
+                  <span style={{ fontSize: 10, color: 'var(--muted)' }}>{(cat.items || []).length} item{(cat.items || []).length !== 1 ? 's' : ''}</span>
+                </div>
+                {/* Item rows */}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {(cat.items || []).map((item, ii) => {
                     const s = SCORE_STYLES[item.strength] || SCORE_STYLES.ok;
                     return (
                       <div key={ii} style={{
-                        padding: '7px 10px', borderRadius: 6, background: s.bg, borderLeft: `3px solid ${s.color}`,
-                        animation: `eg-cardBounceIn 0.38s cubic-bezier(0.34,1.56,0.64,1) ${ci * 0.1 + ii * 0.06}s both`,
+                        display: 'flex', alignItems: 'flex-start', gap: 11, padding: '9px 13px',
+                        borderBottom: ii < (cat.items || []).length - 1 ? '1px solid var(--border)' : 'none',
+                        animation: `eg-cardBounceIn 0.36s cubic-bezier(0.34,1.56,0.64,1) ${ci * 0.08 + ii * 0.05}s both`,
                       }}>
-                        <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.4 }}>{item.text}</div>
-                        <div style={{ fontSize: 10, color: s.color, marginTop: 2 }}>{renderInline(item.note)}</div>
+                        {/* Strength colour bar */}
+                        <div style={{ width: 3, borderRadius: 3, alignSelf: 'stretch', background: s.color, flexShrink: 0, minHeight: 18 }} />
+                        {/* Text + note */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>{item.text}</div>
+                          {item.note && (
+                            <div style={{ fontSize: 11, color: s.color, marginTop: 2, lineHeight: 1.4 }}>{renderInline(item.note)}</div>
+                          )}
+                        </div>
+                        {/* Strength pill */}
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: s.bg, color: s.color, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                          {s.label}
+                        </span>
                       </div>
                     );
                   })}
@@ -1524,7 +1580,12 @@ export default function EssayGuide({ isOpen, onClose, question, essayDraft }) {
             ))}
           </div>
         )}
-        {evidenceResult?.error && <div style={{ fontSize: 11, color: '#991b1b', padding: '8px 12px', background: '#fdecea', borderRadius: 6 }}>Could not organize evidence. Try again.</div>}
+
+        {evidenceResult?.error && (
+          <div style={{ fontSize: 11, color: '#991b1b', padding: '8px 12px', background: '#fdecea', borderRadius: 6 }}>
+            Could not organize evidence. Try again.
+          </div>
+        )}
       </div>
     );
   }
