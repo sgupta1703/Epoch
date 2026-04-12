@@ -189,7 +189,7 @@ router.post('/essay-guide/coach', authenticate, async (req, res, next) => {
       customPrompt || '',
       buildAiInstructionForUser(req.user.role, settings),
     );
-    res.json({ response: result });
+    res.json(result);
   } catch (err) { next(err); }
 });
 
